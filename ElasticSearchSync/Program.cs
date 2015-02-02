@@ -2,9 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ElasticSearchSync
 {
@@ -19,36 +16,22 @@ namespace ElasticSearchSync
             try
             {
                 conn.Open();
-//                SqlCommand cmd = new SqlCommand(@"
-//                    SELECT TOP 10 rat.ID AS 'ID', 
-//			  net.ID AS 'Network.ID', 
-//			  net.Description AS 'Network.Description',
-//			  country.Description AS 'Network.Country.Description',
-//			  country.IsoCode AS 'Network.Country.IsoCode',
-//              region.Description AS 'Network.Country.Region.Description',
-//			  rat.RatingPerc AS 'RatingPerc'
-//FROM dbo.ChannelRating rat 
-//JOIN dbo.ChannelNetwork net ON rat.NetworkID = net.ID 
-//JOIN dbo.Country country ON net.CountryID = country.ID
-//JOIN dbo.Region region ON country.RegionID = region.ID
-//WHERE rat.RatingPerc <> 0"
-//                                    , conn);
-
-//                SqlCommand cmd = new SqlCommand(@"
-//                    SELECT TOP 10 net.ID AS '_id', net.Description AS 'Description', rat.RatingPerc AS 'Rating.Perc'
-//FROM dbo.ChannelNetwork net
-//JOIN dbo.ChannelRating rat ON rat.NetworkID = net.ID
-//WHERE rat.RatingPerc <> 0"
-//                    , conn);
 
                 SqlCommand cmd = new SqlCommand(@"
                     SELECT TOP 10 mg.ID AS '_id', 
-			  mg.Description AS 'Description', 
-			  nw.Description AS 'Network.Description', 
-			  rt.RatingPerc AS 'Rating.Perc'
+              mg.ID AS 'MediaGroup.ID',
+			  mg.Description AS 'MediaGroup.Description', 
+			  nw.ID AS 'MediaGroup.Network.ID',
+			  nw.Description AS 'MediaGroup.Network.Description',
+			  ct.IsoCode AS 'MediaGroup.Network.Country.IsoCode',
+			  rt.RatingPerc AS 'MediaGroup.Rating.Perc',
+              tg.Description AS 'MediaGroup.Rating.Target.Description'
 FROM dbo.ChannelMediaGroup mg
 JOIN dbo.ChannelNetwork nw ON mg.ID = nw.MediaGroupID
 JOIN dbo.ChannelRating rt ON mg.ID = rt.MediaGroupID
+JOIN dbo.ChannelTarget tg ON tg.ID = rt.TargetID
+JOIN dbo.Country ct ON ct.ID = nw.CountryID
+
 WHERE rt.RatingPerc <> 0"
                     , conn);
 
@@ -77,24 +60,28 @@ WHERE rt.RatingPerc <> 0"
         {
             var results = new List<Dictionary<string, object>>();
             var cols = new List<string>();
+            var arrayCols = new List<string>();
             for (var i = 0; i < reader.FieldCount; i++)
-                cols.Add(reader.GetName(i));
+            {
+                var name = reader.GetName(i);
+                cols.Add(name);
+            }
 
             while (reader.Read())
             {
-                var r = SerializeRow(cols, reader, results);
-                results.Add(r);
+                var result = SerializeRow(cols, reader);
+                results.Add(result);
             }
 
             return results;
         }
 
-        private static Dictionary<string, object> SerializeRow(IEnumerable<string> cols, SqlDataReader reader, IEnumerable<Dictionary<string,object>> results)
+        private static Dictionary<string, object> SerializeRow(IEnumerable<string> cols, SqlDataReader reader)
         {
             var result = new Dictionary<string, object>();
             foreach (var col in cols)
             {
-                SerializeObject(col, col, reader, result, results);
+                SerializeObject(col, col, reader, result);
             }
             return result;
         }
@@ -103,8 +90,7 @@ WHERE rt.RatingPerc <> 0"
             string col, 
             string fullColName, 
             SqlDataReader reader, 
-            Dictionary<string, object> result,
-            IEnumerable<Dictionary<string, object>> results)
+            Dictionary<string, object> result)
         {
             var objIndex = col.IndexOf('.');
             if (objIndex != -1)
@@ -117,14 +103,12 @@ WHERE rt.RatingPerc <> 0"
                     col.Substring(objIndex + 1), 
                     fullColName, 
                     reader, 
-                    (Dictionary<string, object>)result[objName], 
-                    results.Where(x => x.ContainsKey(objName)));
+                    (Dictionary<string, object>)result[objName]);
                 return result;
             }
             else
             {
                 var val = reader[fullColName];
-
                 result[col] = val;
                 return result;
             }
