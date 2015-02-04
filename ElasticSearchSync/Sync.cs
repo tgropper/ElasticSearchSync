@@ -52,17 +52,26 @@ namespace ElasticSearchSync
             var client = new ElasticsearchClient(this.Config.ElasticSearchConfiguration);
 
             var response = client.Bulk(bulk);
+            var indexedDocuments = response.Response["items"].HasValue ? ((object[])response.Response["items"].Value).Length : 0;
             client.Bulk("sql_es_sync", new object[]
             { 
                 new { create = new { _type = "log"  } },
-                new { date = DateTime.UtcNow, success = response.Success, statusCode = response.HttpStatusCode }
+                new
+                { 
+                    date = DateTime.UtcNow, 
+                    success = response.Success, 
+                    statusCode = response.HttpStatusCode, 
+                    indexedDocuments = indexedDocuments 
+                }
             });
 
             return new SyncResponse
             {
                 Bulk = bulk,
                 Success = response.Success,
-                HttpStatusCode = response.HttpStatusCode
+                HttpStatusCode = response.HttpStatusCode,
+                ESexception = response.OriginalException,
+                DocumentsIndexed = indexedDocuments
             };
         }
     }

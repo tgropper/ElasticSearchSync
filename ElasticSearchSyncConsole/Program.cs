@@ -50,7 +50,7 @@ namespace ElasticSearchSyncConsole
                                             , conn)
                 };
                 var node = new Uri("http://localhost:9200");
-                var esConfig = new ConnectionConfiguration(node).UsePrettyResponses();
+                var esConfig = new ConnectionConfiguration(node).UsePrettyResponses(); //can configure exception handlers (by httpStatusCode)
 
                 var syncConfig = new SyncConfiguration()
                 {
@@ -63,14 +63,28 @@ namespace ElasticSearchSyncConsole
                 };
 
                 var sync = new Sync(syncConfig);
-                var response = sync.Exec();
 
-                Console.WriteLine(response.Bulk);
-                Console.WriteLine("success: " + response.Success);
-                Console.WriteLine("http status code: " + response.HttpStatusCode);
+                try
+                {
+                    var response = sync.Exec();
 
-                Console.WriteLine("Execution has completed. Press any key to continue...");
-                Console.ReadKey();
+                    Console.WriteLine(response.Bulk);
+                    Console.WriteLine("success: " + response.Success);
+                    Console.WriteLine("http status code: " + response.HttpStatusCode);
+                    Console.WriteLine("indexed documents: " + response.DocumentsIndexed);
+                    if (!response.Success)
+                        Console.WriteLine("es original exception: " + response.ESexception);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("an error has occurred: " + ex.Message);
+                }
+                finally
+                { 
+                    Console.WriteLine("Execution has completed. Press any key to continue...");
+                    Console.ReadKey();
+                }
+
             }
         }
     }
