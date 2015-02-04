@@ -7,6 +7,9 @@ namespace ElasticSearchSync.Helpers
 {
     public static class DataReaderExtensions
     {
+        /// <summary>
+        /// Serialize SqlDataReader into a json serializable dictionary, with document _id as key.
+        /// </summary>
         public static Dictionary<object, Dictionary<string, object>> Serialize(this SqlDataReader reader)
         {
             var results = new Dictionary<object, Dictionary<string, object>>();
