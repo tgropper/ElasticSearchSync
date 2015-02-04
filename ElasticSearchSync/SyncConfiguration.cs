@@ -23,6 +23,11 @@ namespace ElasticSearchSync
 
         public ConnectionConfiguration ElasticSearchConfiguration { get; set; }
 
+        /// <summary>
+        /// Max number of documents in a single bulk request
+        /// </summary>
+        public int BulkSize { get; set; }
+
         public string _Index { get; set; }
 
         public string _Type { get; set; }
