@@ -53,7 +53,7 @@ namespace ElasticSearchSync
 
             var response = client.Bulk(bulk);
             var indexedDocuments = response.Response["items"].HasValue ? ((object[])response.Response["items"].Value).Length : 0;
-            client.Bulk("sql_es_sync", new object[]
+            client.Bulk("sqlserver_es_sync", new object[]
             { 
                 new { create = new { _type = "log"  } },
                 new

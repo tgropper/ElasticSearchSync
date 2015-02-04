@@ -1,2 +1,1 @@
-# ElasticSearchSync
-## SqlServer - ElasticSearch river
+## SqlServer - ElasticSearch Sync
