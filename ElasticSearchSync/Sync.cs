@@ -104,11 +104,12 @@ namespace ElasticSearchSync
             {
                 this.Config.SqlConnection.Open();
                 Dictionary<object, Dictionary<string, object>> deleteData = null;
-                using (SqlDataReader rdr = this.Config.SqlCommand.ExecuteReader())
+                using (SqlDataReader rdr = this.Config.DeleteSqlCommand.ExecuteReader())
                 {
                     deleteData = rdr.Serialize();
                 }
                 this.Config.SqlConnection.Close();
+
                 var d = 0;
                 while (d < deleteData.Count())
                 {
@@ -147,10 +148,12 @@ namespace ElasticSearchSync
                     ended = DateTime.UtcNow,
                     success = syncResponse.Success,
                     indexedDocuments = syncResponse.DocumentsIndexed,
+                    deletedDocuments = syncResponse.DocumentsDeleted,
                     bulks = syncResponse.BulkResponses.Select(x => new {
                         success = x.Success,
                         httpStatusCode = x.HttpStatusCode,
                         indexedDocuments = x.DocumentsIndexed,
+                        deletedDocuments = x.DocumentsDeleted,
                         exception = x.ESexception != null ? ((Exception)x.ESexception).Message : null
                     })
                 }

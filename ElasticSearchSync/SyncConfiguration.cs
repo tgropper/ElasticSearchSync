@@ -36,5 +36,10 @@ namespace ElasticSearchSync
         public string _Index { get; set; }
 
         public string _Type { get; set; }
+
+        public SyncConfiguration()
+        {
+            ArraySqlCommands = new List<SqlCommand>();
+        }
     }
 }

@@ -31,7 +31,14 @@ namespace ElasticSearchSyncConsole
                 JOIN dbo.ChannelTarget tg ON tg.ID = rat.TargetID
                 JOIN dbo.ChannelDayPart dp ON dp.ID = rat.DayPartID
                 JOIN dbo.ChannelNetwork nw ON nw.ID = rat.NetworkID
-                JOIN dbo.ChannelUpload up ON up.ID = rat.UploadID"
+                JOIN dbo.ChannelUpload up ON up.ID = rat.UploadID
+                ORDER BY rat.ID"
+                    , conn);
+
+                SqlCommand deleteCmd = new SqlCommand(@"
+                SELECT TOP(50) ID AS '_id'
+                FROM dbo.ChannelRating
+                ORDER BY ID"
                     , conn);
 
                 List<SqlCommand> arrayCmd = new List<SqlCommand>()
@@ -68,6 +75,7 @@ namespace ElasticSearchSyncConsole
                     SqlConnection = conn,
                     SqlCommand = cmd,
                     ArraySqlCommands = arrayCmd,
+                    DeleteSqlCommand = deleteCmd,
                     ElasticSearchConfiguration = esConfig,
                     BulkSize = 500,
                     _Index = "ratings",
@@ -86,6 +94,7 @@ namespace ElasticSearchSyncConsole
                         Console.WriteLine("success: " + bulkResponse.Success);
                         Console.WriteLine("http status code: " + bulkResponse.HttpStatusCode);
                         Console.WriteLine("indexed documents: " + bulkResponse.DocumentsIndexed);
+                        Console.WriteLine("deleted documents: " + bulkResponse.DocumentsDeleted);
                         if (!response.Success)
                             Console.WriteLine("es original exception: " + bulkResponse.ESexception);
                     }
