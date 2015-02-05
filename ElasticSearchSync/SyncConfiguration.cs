@@ -21,6 +21,11 @@ namespace ElasticSearchSync
         /// </summary>
         public IEnumerable<SqlCommand> ArraySqlCommands { get; set; }
 
+        /// <summary>
+        /// Sql exec must return a datareader containing a single column with document _id
+        /// </summary>
+        public SqlCommand DeleteSqlCommand { get; set; }
+
         public ConnectionConfiguration ElasticSearchConfiguration { get; set; }
 
         /// <summary>

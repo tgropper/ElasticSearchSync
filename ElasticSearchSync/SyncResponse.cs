@@ -10,6 +10,8 @@ namespace ElasticSearchSync
 
         public int DocumentsIndexed { get; set; }
 
+        public int DocumentsDeleted { get; set; }
+
         public List<BulkResponse> BulkResponses { get; set; }
 
         public SyncResponse()
@@ -31,6 +33,8 @@ namespace ElasticSearchSync
         public object ESexception { get; set; }
 
         public int DocumentsIndexed { get; set; }
+
+        public int DocumentsDeleted { get; set; }
 
     }
 }

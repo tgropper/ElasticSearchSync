@@ -41,15 +41,21 @@ namespace ElasticSearchSync
             }
         }
 
-        public string GetBulk(Dictionary<object, Dictionary<string, object>> data)
+        public string GetIndexBulk(Dictionary<object, Dictionary<string, object>> data)
         {
             string bulk = "";
             foreach (var bulkData in data)
-                bulk = bulk + GetPartialBulk(bulkData.Key, bulkData.Value);
+                bulk = bulk + GetPartialIndexBulk(bulkData.Key, bulkData.Value);
             return bulk;
         }
 
-        private string GetPartialBulk(object key, Dictionary<string, object> value)
+        private string GetPartialDeleteBulk(object key)
+        {
+            return String.Format("{0}\n",
+                JsonConvert.SerializeObject(new { delete = new { _index = this.Config._Index, _type = this.Config._Type, _id = key } }, Formatting.None));
+        }
+
+        private string GetPartialIndexBulk(object key, Dictionary<string, object> value)
         {
             return String.Format("{0}\n{1}\n",
                 JsonConvert.SerializeObject(new { index = new { _index = this.Config._Index, _type = this.Config._Type, _id = key } }, Formatting.None),
@@ -69,7 +75,7 @@ namespace ElasticSearchSync
             {
                 var partialData = data.Skip(c).Take(this.Config.BulkSize).ToList();
                 foreach (var bulkData in partialData)
-                    partialbulk = partialbulk + GetPartialBulk(bulkData.Key, bulkData.Value);
+                    partialbulk = partialbulk + GetPartialIndexBulk(bulkData.Key, bulkData.Value);
 
                 //bulk request
                 var response = client.Bulk(partialbulk);
@@ -90,6 +96,46 @@ namespace ElasticSearchSync
 
                 partialbulk = string.Empty;
                 c += this.Config.BulkSize;
+            }
+
+
+            //EXTRACT METHOD
+            if (this.Config.DeleteSqlCommand != null)
+            {
+                this.Config.SqlConnection.Open();
+                Dictionary<object, Dictionary<string, object>> deleteData = null;
+                using (SqlDataReader rdr = this.Config.SqlCommand.ExecuteReader())
+                {
+                    deleteData = rdr.Serialize();
+                }
+                this.Config.SqlConnection.Close();
+                var d = 0;
+                while (d < deleteData.Count())
+                {
+                    var partialData = deleteData.Skip(d).Take(this.Config.BulkSize).ToList();
+                    foreach (var bulkData in partialData)
+                        partialbulk = partialbulk + GetPartialDeleteBulk(bulkData.Key);
+
+                    //bulk request
+                    var response = client.Bulk(partialbulk);
+
+                    //log
+                    syncResponse.Bulk = syncResponse.Bulk + partialbulk;
+                    var deletedDocuments = response.Response["items"].HasValue ? ((object[])response.Response["items"].Value).Length : 0;
+                    syncResponse.BulkResponses.Add(new BulkResponse
+                    {
+                        Success = response.Success,
+                        HttpStatusCode = response.HttpStatusCode,
+                        DocumentsDeleted = deletedDocuments,
+                        ESexception = response.OriginalException
+                    });
+
+                    syncResponse.DocumentsDeleted += deletedDocuments;
+                    syncResponse.Success = syncResponse.Success && response.Success;
+
+                    partialbulk = string.Empty;
+                    d += this.Config.BulkSize;
+                }        
             }
 
             client.Bulk("sqlserver_es_sync", new object[]
