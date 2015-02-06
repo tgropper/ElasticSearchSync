@@ -33,12 +33,19 @@ namespace ElasticSearchSync
         /// </summary>
         public int BulkSize { get; set; }
 
+        /// <summary>
+        /// Elasticsearch index
+        /// </summary>
         public string _Index { get; set; }
 
+        /// <summary>
+        /// Elasticsearch type
+        /// </summary>
         public string _Type { get; set; }
 
         public SyncConfiguration()
         {
+            BulkSize = 5000;
             ArraySqlCommands = new List<SqlCommand>();
         }
     }

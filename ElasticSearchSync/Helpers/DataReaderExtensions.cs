@@ -36,7 +36,7 @@ namespace ElasticSearchSync.Helpers
             {
                 var r = SerializeRow(cols, reader);
                 if (!results.ContainsKey(r.Values.First()))
-                    throw new Exception(String.Format("Array element is related with an object with _id {0}, and it doesn't belong to primary objects list", r.Values.First()));
+                    throw new Exception(String.Format("Array element is related with an object with _id {0}, and it doesn't belong to serialized objects list", r.Values.First()));
 
                 var _object = results[r.Values.First()];
                 r = r.Skip(1).ToDictionary(x => x.Key, x => x.Value);

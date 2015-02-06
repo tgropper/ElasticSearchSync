@@ -1,11 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace ElasticSearchSync
 {
     public class SyncResponse
     {
-        public string Bulk { get; set; }
-
         public bool Success { get; set; }
 
         public int DocumentsIndexed { get; set; }
@@ -35,6 +34,13 @@ namespace ElasticSearchSync
         public int DocumentsIndexed { get; set; }
 
         public int DocumentsDeleted { get; set; }
+
+        public DateTime StartedOn { get; set; }
+
+        /// <summary>
+        /// Bulk duration in seconds
+        /// </summary>
+        public double Duration { get; set; }
 
     }
 }

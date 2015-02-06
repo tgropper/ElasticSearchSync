@@ -17,21 +17,25 @@ namespace ElasticSearchSync
         }
 
         private Dictionary<object, Dictionary<string, object>> GetSerializedObject()
-        { 
+        {
             try
             {
                 this.Config.SqlConnection.Open();
                 Dictionary<object, Dictionary<string, object>> data = null;
+                this.Config.SqlCommand.CommandTimeout = 0;
                 using (SqlDataReader rdr = this.Config.SqlCommand.ExecuteReader())
                 {
                     data = rdr.Serialize();
                 }
 
                 foreach (var cmd in this.Config.ArraySqlCommands)
+                {
+                    cmd.CommandTimeout = 0;
                     using (SqlDataReader rdr = cmd.ExecuteReader())
                     {
                         data = rdr.SerializeArray(data);
                     }
+                }
 
                 return data;
             }
@@ -64,15 +68,20 @@ namespace ElasticSearchSync
 
         public SyncResponse Exec()
         {
-            var started = DateTime.UtcNow;
-            var data = GetSerializedObject();
-            var client = new ElasticsearchClient(this.Config.ElasticSearchConfiguration);
+            log4net.Config.BasicConfigurator.Configure();
+            log4net.ILog log = log4net.LogManager.GetLogger("SQLSERVER-ES Sync");
 
+            var startedOn = DateTime.UtcNow;
+            var data = GetSerializedObject();
+            log.Debug(String.Format("{0} objects have been serialized.", data.Count()));
+
+            var client = new ElasticsearchClient(this.Config.ElasticSearchConfiguration);
             var syncResponse = new SyncResponse();
             string partialbulk = string.Empty;
             var c = 0;
             while (c < data.Count())
             {
+                var bulkStartedOn = DateTime.UtcNow;
                 var partialData = data.Skip(c).Take(this.Config.BulkSize).ToList();
                 foreach (var bulkData in partialData)
                     partialbulk = partialbulk + GetPartialIndexBulk(bulkData.Key, bulkData.Value);
@@ -81,23 +90,26 @@ namespace ElasticSearchSync
                 var response = client.Bulk(partialbulk);
 
                 //log
-                syncResponse.Bulk = syncResponse.Bulk + partialbulk;
                 var indexedDocuments = response.Response["items"].HasValue ? ((object[])response.Response["items"].Value).Length : 0;
-                syncResponse.BulkResponses.Add(new BulkResponse
+                var bulkResponse = new BulkResponse
                 {
                     Success = response.Success,
                     HttpStatusCode = response.HttpStatusCode,
                     DocumentsIndexed = indexedDocuments,
-                    ESexception = response.OriginalException
-                });
-
+                    ESexception = response.OriginalException,
+                    StartedOn = bulkStartedOn,
+                    Duration = Math.Truncate((DateTime.UtcNow - bulkStartedOn).TotalMilliseconds)
+                };
+                syncResponse.BulkResponses.Add(bulkResponse);
                 syncResponse.DocumentsIndexed += indexedDocuments;
                 syncResponse.Success = syncResponse.Success && response.Success;
+
+                client.IndexAsync("sqlserver_es_sync", "bulk_log", bulkResponse);
+                log.Debug(String.Format("bulk duration: {0}ms. so far {1} documents have been indexed successfully.", bulkResponse.Duration, syncResponse.DocumentsIndexed));
 
                 partialbulk = string.Empty;
                 c += this.Config.BulkSize;
             }
-
 
             //EXTRACT METHOD
             if (this.Config.DeleteSqlCommand != null)
@@ -113,6 +125,7 @@ namespace ElasticSearchSync
                 var d = 0;
                 while (d < deleteData.Count())
                 {
+                    var bulkStartedOn = DateTime.UtcNow;
                     var partialData = deleteData.Skip(d).Take(this.Config.BulkSize).ToList();
                     foreach (var bulkData in partialData)
                         partialbulk = partialbulk + GetPartialDeleteBulk(bulkData.Key);
@@ -121,15 +134,19 @@ namespace ElasticSearchSync
                     var response = client.Bulk(partialbulk);
 
                     //log
-                    syncResponse.Bulk = syncResponse.Bulk + partialbulk;
                     var deletedDocuments = response.Response["items"].HasValue ? ((object[])response.Response["items"].Value).Length : 0;
-                    syncResponse.BulkResponses.Add(new BulkResponse
+                    var bulkResponse = new BulkResponse
                     {
                         Success = response.Success,
                         HttpStatusCode = response.HttpStatusCode,
                         DocumentsDeleted = deletedDocuments,
-                        ESexception = response.OriginalException
-                    });
+                        ESexception = response.OriginalException,
+                        StartedOn = bulkStartedOn,
+                        Duration = Math.Truncate((DateTime.UtcNow - bulkStartedOn).TotalMilliseconds)
+                    };
+                    syncResponse.BulkResponses.Add(bulkResponse);
+                    client.IndexAsync("sqlserver_es_sync", "bulk_log", bulkResponse);
+                    log.Debug(String.Format("bulk duration: {0}ms. so far {1} documents have been deleted successfully.", bulkResponse.Duration, syncResponse.DocumentsDeleted));
 
                     syncResponse.DocumentsDeleted += deletedDocuments;
                     syncResponse.Success = syncResponse.Success && response.Success;
@@ -144,7 +161,7 @@ namespace ElasticSearchSync
                 new { create = new { _type = "log"  } },
                 new
                 { 
-                    started = started,
+                    startedOn = startedOn,
                     ended = DateTime.UtcNow,
                     success = syncResponse.Success,
                     indexedDocuments = syncResponse.DocumentsIndexed,
@@ -154,6 +171,7 @@ namespace ElasticSearchSync
                         httpStatusCode = x.HttpStatusCode,
                         indexedDocuments = x.DocumentsIndexed,
                         deletedDocuments = x.DocumentsDeleted,
+                        duration = x.Duration + "ms",
                         exception = x.ESexception != null ? ((Exception)x.ESexception).Message : null
                     })
                 }
