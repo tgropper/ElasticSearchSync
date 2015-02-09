@@ -26,6 +26,20 @@ namespace ElasticSearchSync
         /// </summary>
         public SqlCommand DeleteSqlCommand { get; set; }
 
+        /// <summary>
+        /// Add to the WHERE clause an IN condition for ids of the objects in arrays.
+        /// If this property is set in true, process will expect the WHERE clause of ArraySqlCommands to be with format (to use String.Replace):
+        /// '... WHERE <LOGICAL_CONDITIONS> AND <OBJECT_ID> IN ({OBJECTS_IDS}) ...'
+        /// </summary>
+        public bool FilterArrayByObjectsIds { get; set; }
+
+        /// <summary>
+        /// Add to the WHERE clause the condition that objects to consider in the process have been created or updated after the last synchronization
+        /// If this property is set in true, process will expect the WHERE clause of SqlCommand to be with format (to use String.Replace):
+        /// '... WHERE <LOGICAL_CONDITIONS> AND <UPDATED_FIELD> >= {LASTSYNC} ...'
+        /// </summary>
+        public bool IgnoreFieldsUpToDate { get; set; }
+
         public ConnectionConfiguration ElasticSearchConfiguration { get; set; }
 
         /// <summary>

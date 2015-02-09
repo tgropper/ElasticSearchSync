@@ -13,11 +13,15 @@ namespace ElasticSearchSyncConsole
             using (SqlConnection conn = new SqlConnection("Data Source=(local);Initial Catalog=sarasa;User Id=sa;Password=1234;Connect Timeout=120"))
             {
                 SqlCommand cmd = new SqlCommand(@"
-                SELECT * FROM sarasa"
+                SELECT * FROM sarasa WHERE  lastupdate >= {LASTSYNC}"
                     , conn);
 
                 List<SqlCommand> arrayCmd = new List<SqlCommand>()
-                { };
+                {
+                    new SqlCommand(@"
+                        SELECT * FROM sarasaArray WHERE id IN ({OBJECTS_IDS})"
+                    , conn)
+                };
                 var node = new Uri("http://localhost:9200");
                 var esConfig = new ConnectionConfiguration(node).UsePrettyResponses(); //can configure exception handlers (by httpStatusCode)
 
@@ -26,6 +30,7 @@ namespace ElasticSearchSyncConsole
                     SqlConnection = conn,
                     SqlCommand = cmd,
                     ArraySqlCommands = arrayCmd,
+                    FilterArrayByObjectsIds = true,
                     DeleteSqlCommand = null, //deleteCmd,
                     ElasticSearchConfiguration = esConfig,
                     BulkSize = 500,
@@ -46,7 +51,7 @@ namespace ElasticSearchSyncConsole
                         Console.WriteLine("indexed documents: " + bulkResponse.DocumentsIndexed);
                         Console.WriteLine("deleted documents: " + bulkResponse.DocumentsDeleted);
                         Console.WriteLine("started on: " + bulkResponse.StartedOn);
-                        Console.WriteLine("bulk duration: " + bulkResponse.Duration + "s");
+                        Console.WriteLine("bulk duration: " + bulkResponse.Duration + "ms");
                         if (!response.Success)
                             Console.WriteLine("es original exception: " + bulkResponse.ESexception);
                         Console.WriteLine("\n");

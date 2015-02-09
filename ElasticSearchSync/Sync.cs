@@ -11,6 +11,10 @@ namespace ElasticSearchSync
     public class Sync
     {
         private SyncConfiguration Config;
+        private const string LogIndex = "sqlserver_es_sync";
+        private const string LogType = "log";
+        private const string BulkLogType = "bulk_log";
+
         public Sync(SyncConfiguration config)
         {
             Config = config;
@@ -22,10 +26,34 @@ namespace ElasticSearchSync
             log4net.ILog log = log4net.LogManager.GetLogger("SQLSERVER-ES Sync");
 
             var startedOn = DateTime.UtcNow;
+            var client = new ElasticsearchClient(this.Config.ElasticSearchConfiguration);
+
+            if (this.Config.IgnoreFieldsUpToDate)
+            {
+                var lastSyncResponse = client.Search(LogIndex, LogType,@"{
+                  ""filter"" : {
+                    ""match_all"" : { }
+                  },
+                  ""sort"": [
+                    {
+                      ""startedOn"": {
+                        ""order"": ""desc""
+                      }
+                    }
+                  ],
+                  ""size"": 1
+                }");
+                var lastSyncDate = lastSyncResponse.Response["hits"].HasValue
+                    ? DateTime.Parse(lastSyncResponse.Response["hits"]["hits"]["_index"][0]["_source"]["startedOn"]).ToUniversalTime()
+                    : new DateTime();
+                this.Config.SqlCommand.CommandText = this.Config.SqlCommand.CommandText.Replace("{LASTSYNC}", lastSyncDate);
+
+                throw new Exception("sarasa");
+            }
+
             var data = GetSerializedObject();
             log.Debug(String.Format("{0} objects have been serialized.", data.Count()));
 
-            var client = new ElasticsearchClient(this.Config.ElasticSearchConfiguration);
             var syncResponse = new SyncResponse();
             string partialbulk = string.Empty;
             var c = 0;
@@ -54,7 +82,7 @@ namespace ElasticSearchSync
                 syncResponse.DocumentsIndexed += indexedDocuments;
                 syncResponse.Success = syncResponse.Success && response.Success;
 
-                client.IndexAsync("sqlserver_es_sync", "bulk_log", new
+                client.IndexAsync(LogIndex, BulkLogType, new
                 {
                     success = bulkResponse.Success,
                     httpStatusCode = bulkResponse.HttpStatusCode,
@@ -103,7 +131,7 @@ namespace ElasticSearchSync
                         Duration = Math.Truncate((DateTime.UtcNow - bulkStartedOn).TotalMilliseconds)
                     };
                     syncResponse.BulkResponses.Add(bulkResponse);
-                    client.IndexAsync("sqlserver_es_sync", "bulk_log", new
+                    client.IndexAsync(LogIndex, BulkLogType, new
                     {
                         success = bulkResponse.Success,
                         httpStatusCode = bulkResponse.HttpStatusCode,
@@ -122,9 +150,9 @@ namespace ElasticSearchSync
                 }        
             }
 
-            client.Bulk("sqlserver_es_sync", new object[]
+            client.Bulk(LogIndex, new object[]
             { 
-                new { create = new { _type = "log"  } },
+                new { create = new { _type = LogType  } },
                 new
                 { 
                     startedOn = startedOn,
@@ -158,9 +186,15 @@ namespace ElasticSearchSync
                     data = rdr.Serialize();
                 }
 
+                string[] dataIds = null;
+                if (this.Config.FilterArrayByObjectsIds)
+                    dataIds = data.Select(x => "'" + x.Key + "'").ToArray();
                 foreach (var cmd in this.Config.ArraySqlCommands)
                 {
                     cmd.CommandTimeout = 0;
+                    if (this.Config.FilterArrayByObjectsIds)
+                        cmd.CommandText = cmd.CommandText.Replace("{OBJECTS_IDS}", String.Join(",", dataIds));
+
                     using (SqlDataReader rdr = cmd.ExecuteReader())
                     {
                         data = rdr.SerializeArray(data);
