@@ -13,7 +13,7 @@ namespace ElasticSearchSyncConsole
             using (SqlConnection conn = new SqlConnection("Data Source=(local);Initial Catalog=sarasa;User Id=sa;Password=1234;Connect Timeout=120"))
             {
                 SqlCommand cmd = new SqlCommand(@"
-                SELECT * FROM sarasa WHERE  lastupdate >= {LASTSYNC}"
+                    SELECT * FROM sarasa WHERE  lastupdate >= {LASTSYNC}"
                     , conn);
 
                 List<SqlCommand> arrayCmd = new List<SqlCommand>()
@@ -31,6 +31,7 @@ namespace ElasticSearchSyncConsole
                     SqlCommand = cmd,
                     ArraySqlCommands = arrayCmd,
                     FilterArrayByObjectsIds = true,
+                    IgnoreFieldsUpToDate = true,
                     DeleteSqlCommand = null, //deleteCmd,
                     ElasticSearchConfiguration = esConfig,
                     BulkSize = 500,
