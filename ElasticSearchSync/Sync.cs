@@ -16,56 +16,6 @@ namespace ElasticSearchSync
             Config = config;
         }
 
-        private Dictionary<object, Dictionary<string, object>> GetSerializedObject()
-        {
-            try
-            {
-                this.Config.SqlConnection.Open();
-                Dictionary<object, Dictionary<string, object>> data = null;
-                this.Config.SqlCommand.CommandTimeout = 0;
-                using (SqlDataReader rdr = this.Config.SqlCommand.ExecuteReader())
-                {
-                    data = rdr.Serialize();
-                }
-
-                foreach (var cmd in this.Config.ArraySqlCommands)
-                {
-                    cmd.CommandTimeout = 0;
-                    using (SqlDataReader rdr = cmd.ExecuteReader())
-                    {
-                        data = rdr.SerializeArray(data);
-                    }
-                }
-
-                return data;
-            }
-            finally
-            {
-                this.Config.SqlConnection.Close();
-            }
-        }
-
-        public string GetIndexBulk(Dictionary<object, Dictionary<string, object>> data)
-        {
-            string bulk = "";
-            foreach (var bulkData in data)
-                bulk = bulk + GetPartialIndexBulk(bulkData.Key, bulkData.Value);
-            return bulk;
-        }
-
-        private string GetPartialDeleteBulk(object key)
-        {
-            return String.Format("{0}\n",
-                JsonConvert.SerializeObject(new { delete = new { _index = this.Config._Index, _type = this.Config._Type, _id = key } }, Formatting.None));
-        }
-
-        private string GetPartialIndexBulk(object key, Dictionary<string, object> value)
-        {
-            return String.Format("{0}\n{1}\n",
-                JsonConvert.SerializeObject(new { index = new { _index = this.Config._Index, _type = this.Config._Type, _id = key } }, Formatting.None),
-                JsonConvert.SerializeObject(value, Formatting.None));
-        }
-
         public SyncResponse Exec()
         {
             log4net.Config.BasicConfigurator.Configure();
@@ -104,7 +54,15 @@ namespace ElasticSearchSync
                 syncResponse.DocumentsIndexed += indexedDocuments;
                 syncResponse.Success = syncResponse.Success && response.Success;
 
-                client.IndexAsync("sqlserver_es_sync", "bulk_log", bulkResponse);
+                client.IndexAsync("sqlserver_es_sync", "bulk_log", new
+                {
+                    success = bulkResponse.Success,
+                    httpStatusCode = bulkResponse.HttpStatusCode,
+                    documentsIndexed = bulkResponse.DocumentsIndexed,
+                    startedOn = bulkResponse.StartedOn,
+                    duration = bulkResponse.Duration + "ms",
+                    exception = bulkResponse.ESexception != null ? ((Exception)bulkResponse.ESexception).Message : null
+                });
                 log.Debug(String.Format("bulk duration: {0}ms. so far {1} documents have been indexed successfully.", bulkResponse.Duration, syncResponse.DocumentsIndexed));
 
                 partialbulk = string.Empty;
@@ -145,7 +103,15 @@ namespace ElasticSearchSync
                         Duration = Math.Truncate((DateTime.UtcNow - bulkStartedOn).TotalMilliseconds)
                     };
                     syncResponse.BulkResponses.Add(bulkResponse);
-                    client.IndexAsync("sqlserver_es_sync", "bulk_log", bulkResponse);
+                    client.IndexAsync("sqlserver_es_sync", "bulk_log", new
+                    {
+                        success = bulkResponse.Success,
+                        httpStatusCode = bulkResponse.HttpStatusCode,
+                        documentsDeleted = bulkResponse.DocumentsDeleted,
+                        startedOn = bulkResponse.StartedOn,
+                        duration = bulkResponse.Duration + "ms",
+                        exception = bulkResponse.ESexception != null ? ((Exception)bulkResponse.ESexception).Message : null
+                    });
                     log.Debug(String.Format("bulk duration: {0}ms. so far {1} documents have been deleted successfully.", bulkResponse.Duration, syncResponse.DocumentsDeleted));
 
                     syncResponse.DocumentsDeleted += deletedDocuments;
@@ -162,7 +128,7 @@ namespace ElasticSearchSync
                 new
                 { 
                     startedOn = startedOn,
-                    ended = DateTime.UtcNow,
+                    endedOn = DateTime.UtcNow,
                     success = syncResponse.Success,
                     indexedDocuments = syncResponse.DocumentsIndexed,
                     deletedDocuments = syncResponse.DocumentsDeleted,
@@ -178,6 +144,48 @@ namespace ElasticSearchSync
             });
 
             return syncResponse;
+        }
+
+        private Dictionary<object, Dictionary<string, object>> GetSerializedObject()
+        {
+            try
+            {
+                this.Config.SqlConnection.Open();
+                Dictionary<object, Dictionary<string, object>> data = null;
+                this.Config.SqlCommand.CommandTimeout = 0;
+                using (SqlDataReader rdr = this.Config.SqlCommand.ExecuteReader())
+                {
+                    data = rdr.Serialize();
+                }
+
+                foreach (var cmd in this.Config.ArraySqlCommands)
+                {
+                    cmd.CommandTimeout = 0;
+                    using (SqlDataReader rdr = cmd.ExecuteReader())
+                    {
+                        data = rdr.SerializeArray(data);
+                    }
+                }
+
+                return data;
+            }
+            finally
+            {
+                this.Config.SqlConnection.Close();
+            }
+        }
+
+        private string GetPartialDeleteBulk(object key)
+        {
+            return String.Format("{0}\n",
+                JsonConvert.SerializeObject(new { delete = new { _index = this.Config._Index, _type = this.Config._Type, _id = key } }, Formatting.None));
+        }
+
+        private string GetPartialIndexBulk(object key, Dictionary<string, object> value)
+        {
+            return String.Format("{0}\n{1}\n",
+                JsonConvert.SerializeObject(new { index = new { _index = this.Config._Index, _type = this.Config._Type, _id = key } }, Formatting.None),
+                JsonConvert.SerializeObject(value, Formatting.None));
         }
     }
 }
