@@ -8,7 +8,7 @@ namespace ElasticSearchSyncConsole
 {
     public class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             using (SqlConnection conn = new SqlConnection("Data Source=(local);Initial Catalog=sarasa;User Id=sa;Password=1234;Connect Timeout=120"))
             {
@@ -64,11 +64,10 @@ namespace ElasticSearchSyncConsole
                     Console.WriteLine("an error has occurred: " + ex.Message);
                 }
                 finally
-                { 
+                {
                     Console.WriteLine("Execution has completed. Press any key to continue...");
                     Console.ReadKey();
                 }
-
             }
         }
     }

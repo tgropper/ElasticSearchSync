@@ -5,7 +5,6 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
-using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -15,7 +14,9 @@ namespace ElasticSearchSync
     public class Sync
     {
         public log4net.ILog log { get; set; }
+
         private Stopwatch stopwatch { get; set; }
+
         private SyncConfiguration Config;
         private const string LogIndex = "sqlserver_es_sync";
         private const string LogType = "log";
@@ -177,15 +178,15 @@ namespace ElasticSearchSync
                     stopwatch.Reset();
                     partialbulk = string.Empty;
                     d += this.Config.BulkSize;
-                }        
+                }
             }
 
             stopwatch.Start();
             client.Bulk(LogIndex, new object[]
-            { 
+            {
                 new { create = new { _type = LogType  } },
                 new
-                { 
+                {
                     startedOn = startedOn,
                     endedOn = DateTime.UtcNow,
                     success = syncResponse.Success,
@@ -237,7 +238,7 @@ namespace ElasticSearchSync
                 {
                     cmd.CommandTimeout = 0;
                     if (this.Config.FilterArrayByParentsIds && this.Config.ParentIdColumn != null)
-                    { 
+                    {
                         var conditionBuilder = new StringBuilder()
                             .Append(this.Config.ParentIdColumn)
                             .Append(" IN (")
