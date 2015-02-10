@@ -13,13 +13,13 @@ namespace ElasticSearchSyncConsole
             using (SqlConnection conn = new SqlConnection("Data Source=(local);Initial Catalog=sarasa;User Id=sa;Password=1234;Connect Timeout=120"))
             {
                 SqlCommand cmd = new SqlCommand(@"
-                    SELECT * FROM sarasa WHERE  lastupdate >= {LASTSYNC}"
+                    SELECT * FROM sarasa WHERE sarasa.desc LIKE '%asd%'"
                     , conn);
 
                 List<SqlCommand> arrayCmd = new List<SqlCommand>()
                 {
                     new SqlCommand(@"
-                        SELECT * FROM sarasaArray WHERE id IN ({OBJECTS_IDS})"
+                        SELECT * FROM sarasaArray WHERE sarasaArray.language = 'es'"
                     , conn)
                 };
                 var node = new Uri("http://localhost:9200");
@@ -30,8 +30,9 @@ namespace ElasticSearchSyncConsole
                     SqlConnection = conn,
                     SqlCommand = cmd,
                     ArraySqlCommands = arrayCmd,
-                    FilterArrayByObjectsIds = true,
-                    IgnoreFieldsUpToDate = true,
+                    FilterArrayByParentsIds = true,
+                    ParentIdColumn = "_id",
+                    ColumnsToCompareWithLastSyncDate = new string[] { "[lastupdate]" },
                     DeleteSqlCommand = null, //deleteCmd,
                     ElasticSearchConfiguration = esConfig,
                     BulkSize = 500,

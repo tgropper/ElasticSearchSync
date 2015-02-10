@@ -41,6 +41,5 @@ namespace ElasticSearchSync
         /// Bulk duration in seconds
         /// </summary>
         public double Duration { get; set; }
-
     }
 }

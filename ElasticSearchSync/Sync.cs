@@ -1,15 +1,21 @@
-﻿using Elasticsearch.Net;
+﻿using Bardock.Utils.Extensions;
+using Elasticsearch.Net;
 using ElasticSearchSync.Helpers;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Data.SqlTypes;
+using System.Diagnostics;
 using System.Linq;
+using System.Text;
 
 namespace ElasticSearchSync
 {
     public class Sync
     {
+        public log4net.ILog log { get; set; }
+        private Stopwatch stopwatch { get; set; }
         private SyncConfiguration Config;
         private const string LogIndex = "sqlserver_es_sync";
         private const string LogType = "log";
@@ -18,19 +24,21 @@ namespace ElasticSearchSync
         public Sync(SyncConfiguration config)
         {
             Config = config;
+            log4net.Config.BasicConfigurator.Configure();
+            log = log4net.LogManager.GetLogger("SQLSERVER-ES Sync");
+            stopwatch = new Stopwatch();
         }
 
         public SyncResponse Exec()
         {
-            log4net.Config.BasicConfigurator.Configure();
-            log4net.ILog log = log4net.LogManager.GetLogger("SQLSERVER-ES Sync");
-
             var startedOn = DateTime.UtcNow;
+            log.Info("process started at " + startedOn.NormalizedFormat());
             var client = new ElasticsearchClient(this.Config.ElasticSearchConfiguration);
 
-            if (this.Config.IgnoreFieldsUpToDate)
+            if (this.Config.ColumnsToCompareWithLastSyncDate != null)
             {
-                var lastSyncResponse = client.Search(LogIndex, LogType,@"{
+                stopwatch.Start();
+                var lastSyncResponse = client.Search(LogIndex, LogType, @"{
                   ""filter"" : {
                     ""match_all"" : { }
                   },
@@ -43,16 +51,33 @@ namespace ElasticSearchSync
                   ],
                   ""size"": 1
                 }");
-                var lastSyncDate = lastSyncResponse.Response["hits"].HasValue
-                    ? DateTime.Parse(lastSyncResponse.Response["hits"]["hits"]["_index"][0]["_source"]["startedOn"]).ToUniversalTime()
-                    : new DateTime();
-                this.Config.SqlCommand.CommandText = this.Config.SqlCommand.CommandText.Replace("{LASTSYNC}", lastSyncDate);
+                stopwatch.Stop();
+                log.Debug(String.Format("last sync search duration: {0}ms", stopwatch.ElapsedMilliseconds));
+                stopwatch.Reset();
 
-                throw new Exception("sarasa");
+                DateTime? lastSyncDate = lastSyncResponse.Response != null
+                    ? DateTime.Parse(lastSyncResponse.Response["hits"]["hits"]["_index"][0]["_source"]["startedOn"]).ToUniversalTime()
+                    : null;
+
+                if (lastSyncDate != null)
+                {
+                    var conditionBuilder = new StringBuilder("(");
+                    foreach (var col in this.Config.ColumnsToCompareWithLastSyncDate)
+                        conditionBuilder
+                            .Append(col)
+                            .Append(" >= '")
+                            .Append(lastSyncDate.Value.NormalizedFormat())
+                            .Append("' OR ");
+                    conditionBuilder.RemoveLastCharacters(4).Append(")");
+
+                    this.Config.SqlCommand.CommandText = AddSqlCondition(this.Config.SqlCommand.CommandText, conditionBuilder.ToString());
+                }
+                else
+                    this.Config.FilterArrayByParentsIds = false;
             }
 
             var data = GetSerializedObject();
-            log.Debug(String.Format("{0} objects have been serialized.", data.Count()));
+            log.Info(String.Format("{0} objects have been serialized.", data.Count()));
 
             var syncResponse = new SyncResponse();
             string partialbulk = string.Empty;
@@ -60,12 +85,14 @@ namespace ElasticSearchSync
             while (c < data.Count())
             {
                 var bulkStartedOn = DateTime.UtcNow;
+                stopwatch.Start();
                 var partialData = data.Skip(c).Take(this.Config.BulkSize).ToList();
                 foreach (var bulkData in partialData)
                     partialbulk = partialbulk + GetPartialIndexBulk(bulkData.Key, bulkData.Value);
 
                 //bulk request
                 var response = client.Bulk(partialbulk);
+                stopwatch.Stop();
 
                 //log
                 var indexedDocuments = response.Response["items"].HasValue ? ((object[])response.Response["items"].Value).Length : 0;
@@ -76,7 +103,7 @@ namespace ElasticSearchSync
                     DocumentsIndexed = indexedDocuments,
                     ESexception = response.OriginalException,
                     StartedOn = bulkStartedOn,
-                    Duration = Math.Truncate((DateTime.UtcNow - bulkStartedOn).TotalMilliseconds)
+                    Duration = stopwatch.ElapsedMilliseconds
                 };
                 syncResponse.BulkResponses.Add(bulkResponse);
                 syncResponse.DocumentsIndexed += indexedDocuments;
@@ -91,8 +118,9 @@ namespace ElasticSearchSync
                     duration = bulkResponse.Duration + "ms",
                     exception = bulkResponse.ESexception != null ? ((Exception)bulkResponse.ESexception).Message : null
                 });
-                log.Debug(String.Format("bulk duration: {0}ms. so far {1} documents have been indexed successfully.", bulkResponse.Duration, syncResponse.DocumentsIndexed));
+                log.Info(String.Format("bulk duration: {0}ms. so far {1} documents have been indexed successfully.", bulkResponse.Duration, syncResponse.DocumentsIndexed));
 
+                stopwatch.Reset();
                 partialbulk = string.Empty;
                 c += this.Config.BulkSize;
             }
@@ -118,6 +146,7 @@ namespace ElasticSearchSync
 
                     //bulk request
                     var response = client.Bulk(partialbulk);
+                    stopwatch.Stop();
 
                     //log
                     var deletedDocuments = response.Response["items"].HasValue ? ((object[])response.Response["items"].Value).Length : 0;
@@ -128,7 +157,7 @@ namespace ElasticSearchSync
                         DocumentsDeleted = deletedDocuments,
                         ESexception = response.OriginalException,
                         StartedOn = bulkStartedOn,
-                        Duration = Math.Truncate((DateTime.UtcNow - bulkStartedOn).TotalMilliseconds)
+                        Duration = stopwatch.ElapsedMilliseconds
                     };
                     syncResponse.BulkResponses.Add(bulkResponse);
                     client.IndexAsync(LogIndex, BulkLogType, new
@@ -140,16 +169,18 @@ namespace ElasticSearchSync
                         duration = bulkResponse.Duration + "ms",
                         exception = bulkResponse.ESexception != null ? ((Exception)bulkResponse.ESexception).Message : null
                     });
-                    log.Debug(String.Format("bulk duration: {0}ms. so far {1} documents have been deleted successfully.", bulkResponse.Duration, syncResponse.DocumentsDeleted));
+                    log.Info(String.Format("bulk duration: {0}ms. so far {1} documents have been deleted successfully.", bulkResponse.Duration, syncResponse.DocumentsDeleted));
 
                     syncResponse.DocumentsDeleted += deletedDocuments;
                     syncResponse.Success = syncResponse.Success && response.Success;
 
+                    stopwatch.Reset();
                     partialbulk = string.Empty;
                     d += this.Config.BulkSize;
                 }        
             }
 
+            stopwatch.Start();
             client.Bulk(LogIndex, new object[]
             { 
                 new { create = new { _type = LogType  } },
@@ -170,6 +201,9 @@ namespace ElasticSearchSync
                     })
                 }
             });
+            stopwatch.Stop();
+            log.Debug(String.Format("log index duration: {0}ms", stopwatch.ElapsedMilliseconds));
+            stopwatch.Reset();
 
             return syncResponse;
         }
@@ -181,22 +215,44 @@ namespace ElasticSearchSync
                 this.Config.SqlConnection.Open();
                 Dictionary<object, Dictionary<string, object>> data = null;
                 this.Config.SqlCommand.CommandTimeout = 0;
+
+                stopwatch.Start();
                 using (SqlDataReader rdr = this.Config.SqlCommand.ExecuteReader())
                 {
+                    stopwatch.Stop();
+                    log.Debug(String.Format("sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
+                    stopwatch.Reset();
+
                     data = rdr.Serialize();
                 }
 
+                if (!data.Any())
+                    return data;
+
                 string[] dataIds = null;
-                if (this.Config.FilterArrayByObjectsIds)
+                if (this.Config.FilterArrayByParentsIds)
                     dataIds = data.Select(x => "'" + x.Key + "'").ToArray();
+
                 foreach (var cmd in this.Config.ArraySqlCommands)
                 {
                     cmd.CommandTimeout = 0;
-                    if (this.Config.FilterArrayByObjectsIds)
-                        cmd.CommandText = cmd.CommandText.Replace("{OBJECTS_IDS}", String.Join(",", dataIds));
+                    if (this.Config.FilterArrayByParentsIds && this.Config.ParentIdColumn != null)
+                    { 
+                        var conditionBuilder = new StringBuilder()
+                            .Append(this.Config.ParentIdColumn)
+                            .Append(" IN (")
+                            .Append(String.Join(",", dataIds))
+                            .Append(")");
 
+                        cmd.CommandText = AddSqlCondition(cmd.CommandText, conditionBuilder.ToString());
+                    }
+                    stopwatch.Start();
                     using (SqlDataReader rdr = cmd.ExecuteReader())
                     {
+                        stopwatch.Stop();
+                        log.Debug(String.Format("array sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
+                        stopwatch.Reset();
+
                         data = rdr.SerializeArray(data);
                     }
                 }
@@ -220,6 +276,13 @@ namespace ElasticSearchSync
             return String.Format("{0}\n{1}\n",
                 JsonConvert.SerializeObject(new { index = new { _index = this.Config._Index, _type = this.Config._Type, _id = key } }, Formatting.None),
                 JsonConvert.SerializeObject(value, Formatting.None));
+        }
+
+        private string AddSqlCondition(string sql, string condition)
+        {
+            return new StringBuilder(sql).Insert(
+                sql.IndexOf("where", StringComparison.InvariantCultureIgnoreCase) + "where ".Length,
+                new StringBuilder(condition).Append(" AND ").ToString()).ToString();
         }
     }
 }
