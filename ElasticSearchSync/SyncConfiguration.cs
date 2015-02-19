@@ -19,21 +19,12 @@ namespace ElasticSearchSync
         /// <summary>
         /// First column of sql script must be the same column used for document _id
         /// </summary>
-        public IEnumerable<SqlCommand> ArraySqlCommands { get; set; }
+        public IEnumerable<SyncArrayConfiguration> ArraysConfiguration { get; set; }
 
         /// <summary>
         /// Sql exec must return a datareader containing a single column with document _id
         /// </summary>
         public SqlCommand DeleteSqlCommand { get; set; }
-
-        /// <summary>
-        /// Add to the WHERE clause an IN condition for ids of the objects in arrays.
-        /// If this property has value, process will expect the WHERE clause of ArraySqlCommands to be with format (to use String.Replace)
-        /// Property ParentIdColumn must have a value
-        /// </summary>
-        public bool FilterArrayByParentsIds { get; set; }
-
-        public string ParentIdColumn { get; set; }
 
         /// <summary>
         /// Add to the WHERE clause the condition that objects to consider in the process have been created or updated after the last synchronization
@@ -60,8 +51,50 @@ namespace ElasticSearchSync
 
         public SyncConfiguration()
         {
-            BulkSize = 5000;
-            ArraySqlCommands = new List<SqlCommand>();
+            BulkSize = 1000;
+            ArraysConfiguration = new List<SyncArrayConfiguration>();
         }
+    }
+
+    public class SyncArrayConfiguration
+    {
+        /// <summary>
+        /// First column of sql script must be the same column used for document _id
+        /// </summary>
+        public SqlCommand SqlCommand { get; set; }
+
+        /// <summary>
+        /// Relative position where array is gonna to be added in the serialized object
+        /// NOTE: selected relative position must be an object, not directly an attribute
+        /// </summary>
+        /// <example>
+        /// serialized object:
+        ///     note: {
+        ///         title
+        ///         body
+        ///     }
+        ///
+        /// attributeName:
+        ///     note.tags
+        ///
+        /// final serialized object:
+        ///     note: {
+        ///         title
+        ///         body
+        ///         tags: [
+        ///             {/array object to be inserted/}
+        ///         ]
+        ///     }
+        /// </example>
+        public string AttributeName { get; set; }
+
+        /// <summary>
+        /// Add to the WHERE clause an IN condition for ids of the objects in arrays.
+        /// If this property has value, process will expect the WHERE clause of ArraySqlCommands to be with format (to use String.Replace)
+        /// Property ParentIdColumn must have a value
+        /// </summary>
+        public bool FilterArrayByParentsIds { get; set; }
+
+        public string ParentIdColumn { get; set; }
     }
 }

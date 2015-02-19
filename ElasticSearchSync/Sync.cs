@@ -36,15 +36,16 @@ namespace ElasticSearchSync
             log.Info("process started at " + startedOn.NormalizedFormat());
             var client = new ElasticsearchClient(this.Config.ElasticSearchConfiguration);
 
+            DateTime? lastSyncDate = null;
             if (this.Config.ColumnsToCompareWithLastSyncDate != null)
             {
+                client.ClusterHealth();
                 stopwatch.Start();
                 var lastSyncResponse = client.Search(LogIndex, LogType, @"{
                   ""filter"" : {
                     ""match_all"" : { }
                   },
-                  ""sort"": [
-                    {
+                  ""sort"": [{
                       ""startedOn"": {
                         ""order"": ""desc""
                       }
@@ -56,7 +57,7 @@ namespace ElasticSearchSync
                 log.Debug(String.Format("last sync search duration: {0}ms", stopwatch.ElapsedMilliseconds));
                 stopwatch.Reset();
 
-                DateTime? lastSyncDate = lastSyncResponse.Response != null
+                lastSyncDate = lastSyncResponse.Response != null
                     ? DateTime.Parse(lastSyncResponse.Response["hits"]["hits"]["_index"][0]["_source"]["startedOn"]).ToUniversalTime()
                     : null;
 
@@ -73,14 +74,13 @@ namespace ElasticSearchSync
 
                     this.Config.SqlCommand.CommandText = AddSqlCondition(this.Config.SqlCommand.CommandText, conditionBuilder.ToString());
                 }
-                else
-                    this.Config.FilterArrayByParentsIds = false;
             }
 
             var data = GetSerializedObject();
             log.Info(String.Format("{0} objects have been serialized.", data.Count()));
 
-            var syncResponse = new SyncResponse();
+            var syncResponse = new SyncResponse(startedOn);
+
             string partialbulk = string.Empty;
             var c = 0;
             while (c < data.Count())
@@ -131,6 +131,7 @@ namespace ElasticSearchSync
             {
                 this.Config.SqlConnection.Open();
                 Dictionary<object, Dictionary<string, object>> deleteData = null;
+
                 using (SqlDataReader rdr = this.Config.DeleteSqlCommand.ExecuteReader())
                 {
                     deleteData = rdr.Serialize();
@@ -205,6 +206,9 @@ namespace ElasticSearchSync
             stopwatch.Stop();
             log.Debug(String.Format("log index duration: {0}ms", stopwatch.ElapsedMilliseconds));
             stopwatch.Reset();
+            syncResponse.EndedOn = DateTime.UtcNow;
+
+            log.Info(String.Format("process duration: {0}ms", Math.Truncate((syncResponse.EndedOn - syncResponse.StartedOn).TotalMilliseconds)));
 
             return syncResponse;
         }
@@ -230,31 +234,29 @@ namespace ElasticSearchSync
                 if (!data.Any())
                     return data;
 
-                string[] dataIds = null;
-                if (this.Config.FilterArrayByParentsIds)
-                    dataIds = data.Select(x => "'" + x.Key + "'").ToArray();
+                var dataIds = data.Select(x => "'" + x.Key + "'").ToArray();
 
-                foreach (var cmd in this.Config.ArraySqlCommands)
+                foreach (var arrayConfig in this.Config.ArraysConfiguration)
                 {
-                    cmd.CommandTimeout = 0;
-                    if (this.Config.FilterArrayByParentsIds && this.Config.ParentIdColumn != null)
+                    arrayConfig.SqlCommand.CommandTimeout = 0;
+                    if (arrayConfig.FilterArrayByParentsIds && arrayConfig.ParentIdColumn != null)
                     {
                         var conditionBuilder = new StringBuilder()
-                            .Append(this.Config.ParentIdColumn)
+                            .Append(arrayConfig.ParentIdColumn)
                             .Append(" IN (")
                             .Append(String.Join(",", dataIds))
                             .Append(")");
 
-                        cmd.CommandText = AddSqlCondition(cmd.CommandText, conditionBuilder.ToString());
+                        arrayConfig.SqlCommand.CommandText = AddSqlCondition(arrayConfig.SqlCommand.CommandText, conditionBuilder.ToString());
                     }
                     stopwatch.Start();
-                    using (SqlDataReader rdr = cmd.ExecuteReader())
+                    using (SqlDataReader rdr = arrayConfig.SqlCommand.ExecuteReader())
                     {
                         stopwatch.Stop();
                         log.Debug(String.Format("array sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
                         stopwatch.Reset();
 
-                        data = rdr.SerializeArray(data);
+                        data = rdr.SerializeArray(data, arrayConfig.AttributeName);
                     }
                 }
 

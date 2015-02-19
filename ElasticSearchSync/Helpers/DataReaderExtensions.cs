@@ -26,7 +26,10 @@ namespace ElasticSearchSync.Helpers
             return results;
         }
 
-        public static Dictionary<object, Dictionary<string, object>> SerializeArray(this SqlDataReader reader, Dictionary<object, Dictionary<string, object>> results)
+        public static Dictionary<object, Dictionary<string, object>> SerializeArray(
+            this SqlDataReader reader,
+            Dictionary<object, Dictionary<string, object>> results,
+            string attributeName)
         {
             var cols = new List<string>();
             for (var i = 0; i < reader.FieldCount; i++)
@@ -40,12 +43,13 @@ namespace ElasticSearchSync.Helpers
 
                 var _object = results[r.Values.First()];
                 r = r.Skip(1).ToDictionary(x => x.Key, x => x.Value);
-                var elem = ((Dictionary<string, object>)((Dictionary<string, object>)_object)[r.Keys.First()]);
-                var arrayElemKey = ((Dictionary<string, object>)r.Values.First()).Keys.First();
+                var elem = GetElementPosition(_object, attributeName);
+                //var arrayElemKey = ((Dictionary<string, object>)r.Values.First()).Keys.First();
+                var arrayElemKey = GetElementName(attributeName);
                 if (!elem.ContainsKey(arrayElemKey))
                     elem.Add(arrayElemKey, new List<object>());
 
-                ((List<object>)elem[arrayElemKey]).Add(r[r.Keys.First()]);
+                ((List<object>)elem[arrayElemKey]).Add(r);
             }
 
             return results;
@@ -87,6 +91,24 @@ namespace ElasticSearchSync.Helpers
                 result[col] = val;
                 return result;
             }
+        }
+
+        private static Dictionary<string, object> GetElementPosition(Dictionary<string, object> _object, string property)
+        {
+            var index = property.IndexOf('.');
+            if (index != -1)
+                return GetElementPosition((Dictionary<string, object>)_object[property.Substring(0, index)], property.Substring(index + 1));
+            else
+                return _object;
+        }
+
+        private static string GetElementName(string property)
+        {
+            var index = property.LastIndexOf('.');
+            if (index != -1)
+                return property.Substring(index + 1);
+            else
+                return property;
         }
     }
 }

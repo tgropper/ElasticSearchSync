@@ -11,10 +11,15 @@ namespace ElasticSearchSync
 
         public int DocumentsDeleted { get; set; }
 
+        public DateTime StartedOn { get; set; }
+
+        public DateTime EndedOn { get; set; }
+
         public List<BulkResponse> BulkResponses { get; set; }
 
-        public SyncResponse()
+        public SyncResponse(DateTime startedOn)
         {
+            StartedOn = startedOn;
             Success = true;
             BulkResponses = new List<BulkResponse>();
         }
