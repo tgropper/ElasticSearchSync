@@ -74,6 +74,8 @@ namespace ElasticSearchSync
 
                     this.Config.SqlCommand.CommandText = AddSqlCondition(this.Config.SqlCommand.CommandText, conditionBuilder.ToString());
                 }
+                else
+                    this.Config.FilterArrayByParentsIds = false;
             }
 
             var data = GetSerializedObject();
@@ -239,7 +241,7 @@ namespace ElasticSearchSync
                 foreach (var arrayConfig in this.Config.ArraysConfiguration)
                 {
                     arrayConfig.SqlCommand.CommandTimeout = 0;
-                    if (arrayConfig.FilterArrayByParentsIds && arrayConfig.ParentIdColumn != null)
+                    if (this.Config.FilterArrayByParentsIds && arrayConfig.ParentIdColumn != null)
                     {
                         var conditionBuilder = new StringBuilder()
                             .Append(arrayConfig.ParentIdColumn)

@@ -28,7 +28,6 @@ namespace ElasticSearchSyncConsole
                             WHERE languageId = 'es'"
                             , conn),
                         AttributeName = "note.tags",
-                        FilterArrayByParentsIds = true,
                         ParentIdColumn = "_id"
                     },
                     new SyncArrayConfiguration
@@ -39,7 +38,6 @@ namespace ElasticSearchSyncConsole
                             WHERE languageId = 'es'"
                             , conn),
                         AttributeName = "note.categories",
-                        FilterArrayByParentsIds = true,
                         ParentIdColumn = "_id"
                     }
                 };
@@ -57,6 +55,7 @@ namespace ElasticSearchSyncConsole
                     SqlConnection = conn,
                     SqlCommand = cmd,
                     ArraysConfiguration = arrayConfig,
+                    FilterArrayByParentsIds = true,
                     ColumnsToCompareWithLastSyncDate = new string[] { "[lastupdate]" },
                     DeleteSqlCommand = null, //deleteCmd,
                     ElasticSearchConfiguration = esConfig,

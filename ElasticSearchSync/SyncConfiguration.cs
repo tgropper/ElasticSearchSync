@@ -22,6 +22,13 @@ namespace ElasticSearchSync
         public IEnumerable<SyncArrayConfiguration> ArraysConfiguration { get; set; }
 
         /// <summary>
+        /// Add to the WHERE clause an IN condition for ids of the objects in arrays.
+        /// If this property has value, process will expect the WHERE clause of ArraySqlCommands to be with format (to use String.Replace)
+        /// Property ParentIdColumn in ArrayConfiguration must have a value
+        /// </summary>
+        public bool FilterArrayByParentsIds { get; set; }
+
+        /// <summary>
         /// Sql exec must return a datareader containing a single column with document _id
         /// </summary>
         public SqlCommand DeleteSqlCommand { get; set; }
@@ -87,13 +94,6 @@ namespace ElasticSearchSync
         ///     }
         /// </example>
         public string AttributeName { get; set; }
-
-        /// <summary>
-        /// Add to the WHERE clause an IN condition for ids of the objects in arrays.
-        /// If this property has value, process will expect the WHERE clause of ArraySqlCommands to be with format (to use String.Replace)
-        /// Property ParentIdColumn must have a value
-        /// </summary>
-        public bool FilterArrayByParentsIds { get; set; }
 
         public string ParentIdColumn { get; set; }
     }
