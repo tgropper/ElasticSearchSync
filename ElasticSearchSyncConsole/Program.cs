@@ -23,7 +23,7 @@ namespace ElasticSearchSyncConsole
                     new SyncArrayConfiguration
                     {
                         SqlCommand = new SqlCommand(@"
-                            SELECT _id, id, description, languageId
+                            SELECT id_object AS '_id', id, description, languageId
                             FROM dbo.Tags
                             WHERE languageId = 'es'"
                             , conn),
@@ -33,7 +33,7 @@ namespace ElasticSearchSyncConsole
                     new SyncArrayConfiguration
                     {
                         SqlCommand = new SqlCommand(@"
-                            SELECT _id, id, description, languageId
+                            SELECT id_object AS '_id', id, description, languageId
                             FROM dbo.Categories
                             WHERE languageId = 'es'"
                             , conn),
@@ -42,8 +42,18 @@ namespace ElasticSearchSyncConsole
                     }
                 };
 
+                SyncDeleteConfiguration deleteCmd = new SyncDeleteConfiguration
+                {
+                    SqlCommand = new SqlCommand(@"
+                        SELECT id_object AS '_id', createdOn
+                        FROM dbo.DeleteLog
+                        WHERE id_language = 'es'"
+                        , conn),
+                    ColumnsToCompareWithLastSyncDate = new string[] { "[createdOn]" },
+                };
+
                 var nodes =
-                    new Uri[] { 
+                    new Uri[] {
                         new Uri("http://localhost:9200"),
                         new Uri("http://localhost:9201")
                     };
@@ -57,7 +67,7 @@ namespace ElasticSearchSyncConsole
                     ArraysConfiguration = arrayConfig,
                     FilterArrayByParentsIds = true,
                     ColumnsToCompareWithLastSyncDate = new string[] { "[lastupdate]" },
-                    DeleteSqlCommand = null, //deleteCmd,
+                    DeleteConfiguration = deleteCmd,
                     ElasticSearchConfiguration = esConfig,
                     BulkSize = 500,
                     _Index = "sarasa",

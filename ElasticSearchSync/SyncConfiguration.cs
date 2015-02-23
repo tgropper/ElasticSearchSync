@@ -16,10 +16,9 @@ namespace ElasticSearchSync
         /// </summary>
         public SqlCommand SqlCommand { get; set; }
 
-        /// <summary>
-        /// First column of sql script must be the same column used for document _id
-        /// </summary>
         public IEnumerable<SyncArrayConfiguration> ArraysConfiguration { get; set; }
+
+        public SyncDeleteConfiguration DeleteConfiguration { get; set; }
 
         /// <summary>
         /// Add to the WHERE clause an IN condition for ids of the objects in arrays.
@@ -27,11 +26,6 @@ namespace ElasticSearchSync
         /// Property ParentIdColumn in ArrayConfiguration must have a value
         /// </summary>
         public bool FilterArrayByParentsIds { get; set; }
-
-        /// <summary>
-        /// Sql exec must return a datareader containing a single column with document _id
-        /// </summary>
-        public SqlCommand DeleteSqlCommand { get; set; }
 
         /// <summary>
         /// Add to the WHERE clause the condition that objects to consider in the process have been created or updated after the last synchronization
@@ -96,5 +90,19 @@ namespace ElasticSearchSync
         public string AttributeName { get; set; }
 
         public string ParentIdColumn { get; set; }
+    }
+
+    public class SyncDeleteConfiguration
+    {
+        /// <summary>
+        /// Sql exec must return a datareader containing mandatorily a column with document _id
+        /// </summary>
+        public SqlCommand SqlCommand { get; set; }
+
+        /// <summary>
+        /// Add to the WHERE clause the condition that objects to consider in the process have been created or updated after the last synchronization
+        /// If this property has value, process will expect the SqlCommand to have a WHERE clause:
+        /// </summary>
+        public string[] ColumnsToCompareWithLastSyncDate { get; set; }
     }
 }
