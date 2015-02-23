@@ -17,7 +17,7 @@ namespace ElasticSearchSync
 
         private Stopwatch stopwatch { get; set; }
 
-        private SyncConfiguration Config;
+        private SyncConfiguration _config;
         private const string LogIndex = "sqlserver_es_sync";
         private const string LogType = "log";
         private const string BulkLogType = "bulk_log";
@@ -25,7 +25,7 @@ namespace ElasticSearchSync
 
         public Sync(SyncConfiguration config)
         {
-            Config = config;
+            _config = config;
             log4net.Config.BasicConfigurator.Configure();
             log = log4net.LogManager.GetLogger("SQLSERVER-ES Sync");
             stopwatch = new Stopwatch();
@@ -35,12 +35,12 @@ namespace ElasticSearchSync
         {
             var startedOn = DateTime.UtcNow;
             log.Info("process started at " + startedOn.NormalizedFormat());
-            var client = new ElasticsearchClient(this.Config.ElasticSearchConfiguration);
+            var client = new ElasticsearchClient(_config.ElasticSearchConfiguration);
 
             using (var _lock = new SyncLock(client, LogIndex, LockType))
             {
                 DateTime? lastSyncDate = null;
-                if (this.Config.ColumnsToCompareWithLastSyncDate != null)
+                if (_config.ColumnsToCompareWithLastSyncDate != null)
                 {
                     client.ClusterHealth();
                     stopwatch.Start();
@@ -67,7 +67,7 @@ namespace ElasticSearchSync
                     {
                         // comentar
                         var conditionBuilder = new StringBuilder("(");
-                        foreach (var col in this.Config.ColumnsToCompareWithLastSyncDate)
+                        foreach (var col in _config.ColumnsToCompareWithLastSyncDate)
                             conditionBuilder
                                 .Append(col)
                                 .Append(" >= '")
@@ -75,10 +75,10 @@ namespace ElasticSearchSync
                                 .Append("' OR ");
                         conditionBuilder.RemoveLastCharacters(4).Append(")");
 
-                        this.Config.SqlCommand.CommandText = AddSqlCondition(this.Config.SqlCommand.CommandText, conditionBuilder.ToString());
+                        _config.SqlCommand.CommandText = AddSqlCondition(_config.SqlCommand.CommandText, conditionBuilder.ToString());
                     }
                     else
-                        this.Config.FilterArrayByParentsIds = false;
+                        _config.FilterArrayByParentsIds = false;
                 }
 
                 var data = GetSerializedObject();
@@ -92,7 +92,7 @@ namespace ElasticSearchSync
                 {
                     var bulkStartedOn = DateTime.UtcNow;
                     stopwatch.Start();
-                    var partialData = data.Skip(c).Take(this.Config.BulkSize).ToList();
+                    var partialData = data.Skip(c).Take(_config.BulkSize).ToList();
                     foreach (var bulkData in partialData)
                         partialbulk = partialbulk + GetPartialIndexBulk(bulkData.Key, bulkData.Value);
 
@@ -128,20 +128,20 @@ namespace ElasticSearchSync
 
                     stopwatch.Reset();
                     partialbulk = string.Empty;
-                    c += this.Config.BulkSize;
+                    c += _config.BulkSize;
                 }
 
                 //EXTRACT METHOD
-                if (this.Config.DeleteConfiguration != null)
+                if (_config.DeleteConfiguration != null)
                 {
-                    this.Config.SqlConnection.Open();
+                    _config.SqlConnection.Open();
                     Dictionary<object, Dictionary<string, object>> deleteData = null;
 
                     if (lastSyncDate != null)
                     {
                         // comentar
                         var conditionBuilder = new StringBuilder("(");
-                        foreach (var col in this.Config.DeleteConfiguration.ColumnsToCompareWithLastSyncDate)
+                        foreach (var col in _config.DeleteConfiguration.ColumnsToCompareWithLastSyncDate)
                             conditionBuilder
                                 .Append(col)
                                 .Append(" >= '")
@@ -149,22 +149,22 @@ namespace ElasticSearchSync
                                 .Append("' OR ");
                         conditionBuilder.RemoveLastCharacters(4).Append(")");
 
-                        this.Config.DeleteConfiguration.SqlCommand.CommandText = AddSqlCondition(
-                            this.Config.DeleteConfiguration.SqlCommand.CommandText,
+                        _config.DeleteConfiguration.SqlCommand.CommandText = AddSqlCondition(
+                            _config.DeleteConfiguration.SqlCommand.CommandText,
                             conditionBuilder.ToString());
                     }
 
-                    using (SqlDataReader rdr = this.Config.DeleteConfiguration.SqlCommand.ExecuteReader())
+                    using (SqlDataReader rdr = _config.DeleteConfiguration.SqlCommand.ExecuteReader())
                     {
                         deleteData = rdr.Serialize();
                     }
-                    this.Config.SqlConnection.Close();
+                    _config.SqlConnection.Close();
 
                     var d = 0;
                     while (d < deleteData.Count())
                     {
                         var bulkStartedOn = DateTime.UtcNow;
-                        var partialData = deleteData.Skip(d).Take(this.Config.BulkSize).ToList();
+                        var partialData = deleteData.Skip(d).Take(_config.BulkSize).ToList();
                         foreach (var bulkData in partialData)
                             partialbulk = partialbulk + GetPartialDeleteBulk(bulkData.Key);
 
@@ -200,7 +200,7 @@ namespace ElasticSearchSync
 
                         stopwatch.Reset();
                         partialbulk = string.Empty;
-                        d += this.Config.BulkSize;
+                        d += _config.BulkSize;
                     }
                 }
 
@@ -237,12 +237,12 @@ namespace ElasticSearchSync
         {
             try
             {
-                this.Config.SqlConnection.Open();
+                _config.SqlConnection.Open();
                 Dictionary<object, Dictionary<string, object>> data = null;
-                this.Config.SqlCommand.CommandTimeout = 0;
+                _config.SqlCommand.CommandTimeout = 0;
 
                 stopwatch.Start();
-                using (SqlDataReader rdr = this.Config.SqlCommand.ExecuteReader())
+                using (SqlDataReader rdr = _config.SqlCommand.ExecuteReader())
                 {
                     stopwatch.Stop();
                     log.Debug(String.Format("sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
@@ -256,10 +256,10 @@ namespace ElasticSearchSync
 
                 var dataIds = data.Select(x => "'" + x.Key + "'").ToArray();
 
-                foreach (var arrayConfig in this.Config.ArraysConfiguration)
+                foreach (var arrayConfig in _config.ArraysConfiguration)
                 {
                     arrayConfig.SqlCommand.CommandTimeout = 0;
-                    if (this.Config.FilterArrayByParentsIds && arrayConfig.ParentIdColumn != null)
+                    if (_config.FilterArrayByParentsIds && arrayConfig.ParentIdColumn != null)
                     {
                         var conditionBuilder = new StringBuilder()
                             .Append(arrayConfig.ParentIdColumn)
@@ -284,20 +284,20 @@ namespace ElasticSearchSync
             }
             finally
             {
-                this.Config.SqlConnection.Close();
+                _config.SqlConnection.Close();
             }
         }
 
         private string GetPartialDeleteBulk(object key)
         {
             return String.Format("{0}\n",
-                JsonConvert.SerializeObject(new { delete = new { _index = this.Config._Index, _type = this.Config._Type, _id = key } }, Formatting.None));
+                JsonConvert.SerializeObject(new { delete = new { _index = _config._Index, _type = _config._Type, _id = key } }, Formatting.None));
         }
 
         private string GetPartialIndexBulk(object key, Dictionary<string, object> value)
         {
             return String.Format("{0}\n{1}\n",
-                JsonConvert.SerializeObject(new { index = new { _index = this.Config._Index, _type = this.Config._Type, _id = key } }, Formatting.None),
+                JsonConvert.SerializeObject(new { index = new { _index = _config._Index, _type = _config._Type, _id = key } }, Formatting.None),
                 JsonConvert.SerializeObject(value, Formatting.None));
         }
 
