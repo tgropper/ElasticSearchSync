@@ -6,7 +6,7 @@ It uses ADO.Net for sql connection and query executions, and Elasticsearch.Net l
 
 ElasticSearchSync allows to generate bulks that performs index and delete actions, from a sql server source.
 
-You may need to see Environment setup first. (add hyperlink)
+You may need to see [Environment setup](EnvironmentSetup.md) first.
 
 ### NuGet intallation
 
