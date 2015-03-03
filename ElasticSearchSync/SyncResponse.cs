@@ -7,9 +7,9 @@ namespace ElasticSearchSync
     {
         public bool Success { get; set; }
 
-        public int DocumentsIndexed { get; set; }
+        public int IndexedDocuments { get; set; }
 
-        public int DocumentsDeleted { get; set; }
+        public int DeletedDocuments { get; set; }
 
         public DateTime StartedOn { get; set; }
 
@@ -36,14 +36,12 @@ namespace ElasticSearchSync
         /// </summary>
         public object ESexception { get; set; }
 
-        public int DocumentsIndexed { get; set; }
-
-        public int DocumentsDeleted { get; set; }
+        public int AffectedDocuments { get; set; }
 
         public DateTime StartedOn { get; set; }
 
         /// <summary>
-        /// Bulk duration in seconds
+        /// Bulk duration in miliseconds
         /// </summary>
         public double Duration { get; set; }
     }

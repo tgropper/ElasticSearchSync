@@ -85,8 +85,7 @@ namespace ElasticSearchSyncConsole
                         {
                             Console.WriteLine("success: " + bulkResponse.Success);
                             Console.WriteLine("http status code: " + bulkResponse.HttpStatusCode);
-                            Console.WriteLine("indexed documents: " + bulkResponse.DocumentsIndexed);
-                            Console.WriteLine("deleted documents: " + bulkResponse.DocumentsDeleted);
+                            Console.WriteLine("affected documents: " + bulkResponse.AffectedDocuments);
                             Console.WriteLine("started on: " + bulkResponse.StartedOn);
                             Console.WriteLine("bulk duration: " + bulkResponse.Duration + "ms");
                             if (!response.Success)

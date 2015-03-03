@@ -51,6 +51,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Helpers\ElasticsearchHelpers.cs" />
     <Compile Include="SyncConfiguration.cs" />
     <Compile Include="Helpers\DataReaderExtensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
