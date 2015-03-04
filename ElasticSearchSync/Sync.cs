@@ -86,8 +86,11 @@ namespace ElasticSearchSync
                 if (lastSyncDate == null)
                 {
                     var lastSyncResponse = GetLastSync();
-                    if (lastSyncResponse.Response == null)
+                    if (lastSyncResponse.Response == null || (bool)lastSyncResponse.Response["found"] == false)
+                    {
+                        _config.FilterArrayByParentsIds = false;
                         return null;
+                    }
 
                     lastSyncDate = DateTime.Parse(lastSyncResponse.Response["_source"]["date"]).ToUniversalTime();
                 }
