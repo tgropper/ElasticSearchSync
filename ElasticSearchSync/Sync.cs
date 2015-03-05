@@ -20,10 +20,10 @@ namespace ElasticSearchSync
 
         private SyncConfiguration _config;
         private const string LogIndex = "sqlserver_es_sync";
-        private const string LogType = "log";
-        private const string BulkLogType = "bulk_log";
-        private const string LockType = "lock";
-        private const string LastLogType = "last_log";
+        private string LogType = "log";
+        private string BulkLogType = "bulk_log";
+        private string LockType = "lock";
+        private string LastLogType = "last_log";
         private const string LastLogID = "1";
 
         public Sync(SyncConfiguration config)
@@ -32,6 +32,11 @@ namespace ElasticSearchSync
             log4net.Config.BasicConfigurator.Configure();
             log = log4net.LogManager.GetLogger("SQLSERVER-ES Sync");
             stopwatch = new Stopwatch();
+
+            LogType = String.Format("{0}_{1}_{2}", LogType, _config._Index, _config._Type);
+            BulkLogType = String.Format("{0}_{1}_{2}", BulkLogType, _config._Index, _config._Type);
+            LockType = String.Format("{0}_{1}_{2}", LockType, _config._Index, _config._Type);
+            LastLogType = String.Format("{0}_{1}_{2}", LastLogType, _config._Index, _config._Type);
         }
 
         public SyncResponse Exec()
