@@ -273,7 +273,7 @@ namespace ElasticSearchSync
                     log.Debug(String.Format("sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
                     stopwatch.Reset();
 
-                    data = rdr.Serialize();
+                    data = rdr.Serialize(_config.XmlFields);
                 }
 
                 if (!data.Any())
@@ -301,7 +301,7 @@ namespace ElasticSearchSync
                         log.Debug(String.Format("array sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
                         stopwatch.Reset();
 
-                        data = rdr.SerializeArray(data, arrayConfig.AttributeName);
+                        data = rdr.SerializeArray(data, arrayConfig.AttributeName, arrayConfig.XmlFields);
                     }
                 }
 

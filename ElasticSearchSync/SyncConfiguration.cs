@@ -33,6 +33,11 @@ namespace ElasticSearchSync
         /// </summary>
         public string[] ColumnsToCompareWithLastSyncDate { get; set; }
 
+        /// <summary>
+        /// Sql columns that contains xml data
+        /// </summary>
+        public string[] XmlFields { get; set; }
+
         public ConnectionConfiguration ElasticSearchConfiguration { get; set; }
 
         /// <summary>
@@ -90,6 +95,11 @@ namespace ElasticSearchSync
         public string AttributeName { get; set; }
 
         public string ParentIdColumn { get; set; }
+
+        /// <summary>
+        /// Sql columns that contains xml data
+        /// </summary>
+        public string[] XmlFields { get; set; }
     }
 
     public class SyncDeleteConfiguration

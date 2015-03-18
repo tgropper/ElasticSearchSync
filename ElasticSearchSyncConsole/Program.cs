@@ -27,18 +27,19 @@ namespace ElasticSearchSyncConsole
                             FROM dbo.Tags
                             WHERE languageId = 'es'"
                             , conn),
-                        AttributeName = "note.tags",
+                        AttributeName = "tags",
                         ParentIdColumn = "_id"
                     },
                     new SyncArrayConfiguration
                     {
                         SqlCommand = new SqlCommand(@"
-                            SELECT id_object AS '_id', id, description, languageId
+                            SELECT id_object AS '_id', id, description, xmlData, languageId
                             FROM dbo.Categories
                             WHERE languageId = 'es'"
                             , conn),
-                        AttributeName = "note.categories",
-                        ParentIdColumn = "_id"
+                        AttributeName = "categories",
+                        ParentIdColumn = "_id",
+                        XmlFields = new string[] { "xmlData" }
                     }
                 };
 
