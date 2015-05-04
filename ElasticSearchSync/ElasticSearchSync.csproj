@@ -30,8 +30,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Bardock.Utils">
-      <HintPath>..\..\OminxElasticSearchSync\packages\Bardock.Utils.2.2.2\lib\net45\Bardock.Utils.dll</HintPath>
+    <Reference Include="Bardock.Utils, Version=2.2.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Bardock.Utils.2.2.2\lib\net45\Bardock.Utils.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="Elasticsearch.Net">
       <HintPath>..\packages\Elasticsearch.Net.1.4.0\lib\net45\Elasticsearch.Net.dll</HintPath>

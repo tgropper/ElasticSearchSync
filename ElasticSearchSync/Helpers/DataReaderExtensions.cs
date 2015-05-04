@@ -102,9 +102,11 @@ namespace ElasticSearchSync.Helpers
             }
         }
 
-        private static Dictionary<string, object> SerializeXml(
-            string data)
+        private static Dictionary<string, object> SerializeXml(string data)
         {
+            if (String.IsNullOrEmpty(data))
+                return null;
+
             XmlDocument xml = new XmlDocument();
             xml.LoadXml(data);
 
