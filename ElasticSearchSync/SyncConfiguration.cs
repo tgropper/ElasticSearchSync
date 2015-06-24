@@ -100,6 +100,11 @@ namespace ElasticSearchSync
         /// Sql columns that contains xml data
         /// </summary>
         public string[] XmlFields { get; set; }
+
+        /// <summary>
+        /// If it has value, the array will be inserted within another one, matching the value of the second propery with the array element taken by this key
+        /// </summary>
+        public string InsertIntoArrayComparerKey { get; set; }
     }
 
     public class SyncDeleteConfiguration

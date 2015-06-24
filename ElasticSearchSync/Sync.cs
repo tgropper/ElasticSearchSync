@@ -301,7 +301,7 @@ namespace ElasticSearchSync
                         log.Debug(String.Format("array sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
                         stopwatch.Reset();
 
-                        data = rdr.SerializeArray(data, arrayConfig.AttributeName, arrayConfig.XmlFields);
+                        data = rdr.SerializeArray(data, arrayConfig.AttributeName, arrayConfig.XmlFields, arrayConfig.InsertIntoArrayComparerKey);
                     }
                 }
 

@@ -27,11 +27,25 @@ namespace ElasticSearchSync.Helpers
             return results;
         }
 
+        /// <summary>
+        /// Serialize an array and insert it into the specified primary object
+        /// </summary>
+        /// <param name="reader">Data Reader</param>
+        /// <param name="results">List of primary objects</param>
+        /// <param name="attributeName">Name of the object belonging to the primary object where the array will be inserted on</param>
+        /// <param name="xmlFields">Array fields that are of type Xml</param>
+        /// <param name="insertIntoArrayComparerKey">
+        /// If it has value, it will be assumed that the attributeName parameter refers to an array existing within the primary object,
+        /// and the new array will be inserted into it, using this parameter as key to access to each array object and comparing its value with
+        /// the second property of each object in the new array
+        /// </param>
+        /// <returns>List of primary objects with arrays processed and inserted into it</returns>
         public static Dictionary<object, Dictionary<string, object>> SerializeArray(
             this SqlDataReader reader,
             Dictionary<object, Dictionary<string, object>> results,
             string attributeName,
-            string[] xmlFields = null)
+            string[] xmlFields = null,
+            string insertIntoArrayComparerKey = null)
         {
             var cols = new List<string>();
             for (var i = 0; i < reader.FieldCount; i++)
@@ -39,26 +53,48 @@ namespace ElasticSearchSync.Helpers
 
             while (reader.Read())
             {
-                var r = SerializeRow(cols, reader, xmlFields);
-                if (!results.ContainsKey(r.Values.First()))
-                    throw new Exception(String.Format("Array element is related with an object with _id {0}, and it doesn't belong to serialized objects list", r.Values.First()));
+                var serializedRow = SerializeRow(cols, reader, xmlFields);
+                if (!results.ContainsKey(serializedRow.Values.First()))
+                    throw new Exception(String.Format("Array element is related with an object with _id {0}, but it doesn't belong to serialized objects list", serializedRow.Values.First()));
 
-                var _object = results[r.Values.First()];
-                r = r.Skip(1).ToDictionary(x => x.Key, x => x.Value);
-                var elem = GetElementPosition(_object, attributeName);
+                var _object = results[serializedRow.Values.First()];
+                serializedRow = serializedRow.Skip(1).ToDictionary(x => x.Key, x => x.Value);
 
-                var arrayElemKey = GetElementName(attributeName);
-                if (!elem.ContainsKey(arrayElemKey))
-                    elem.Add(arrayElemKey, new List<object>());
+                var newArrayKey = GetLeafName(attributeName);
+                Dictionary<string, object> newArrayContainerElement = null;
+                if (insertIntoArrayComparerKey != null)
+                {
+                    var existingArrayAttributeName = attributeName.Substring(0, attributeName.Count() - newArrayKey.Count() - 1);
+                    var existingArrayContainerElement = GetLeafContainerElement(_object, existingArrayAttributeName);
+                    var existingArrayKey = GetLeafName(existingArrayAttributeName);
 
-                ((List<object>)elem[arrayElemKey]).Add(r);
+                    if (!existingArrayContainerElement.ContainsKey(existingArrayKey))
+                        throw new Exception("The array property, where you are trying to insert the new array, is not a valid property of the primary object. You have to serialize that array first");
+
+                    var existingArray = (List<dynamic>)existingArrayContainerElement[existingArrayKey];
+
+                    if (!existingArray.Any(x => x[insertIntoArrayComparerKey].ToString() == serializedRow.Values.First().ToString()))
+                        throw new Exception("There is no element in the existing array that matches with the key from the serialized array");
+
+                    newArrayContainerElement = existingArray.First(x => x[insertIntoArrayComparerKey].ToString() == serializedRow.Values.First().ToString());
+                    serializedRow = serializedRow.Skip(1).ToDictionary(x => x.Key, x => x.Value);
+                }
+                else
+                {
+                    newArrayContainerElement = GetLeafContainerElement(_object, attributeName);
+                }
+
+                if (!newArrayContainerElement.ContainsKey(newArrayKey))
+                    newArrayContainerElement.Add(newArrayKey, new List<object>());
+
+                ((List<object>)newArrayContainerElement[newArrayKey]).Add(serializedRow);
             }
 
             return results;
         }
 
         private static Dictionary<string, object> SerializeRow(
-            IEnumerable<string> cols, 
+            IEnumerable<string> cols,
             SqlDataReader reader,
             string[] xmlFields = null)
         {
@@ -132,16 +168,22 @@ namespace ElasticSearchSync.Helpers
             }
         }
 
-        private static Dictionary<string, object> GetElementPosition(Dictionary<string, object> _object, string property)
+        /// <summary>
+        /// Takes the closest element that contains the leaf property
+        /// </summary>
+        private static Dictionary<string, object> GetLeafContainerElement(Dictionary<string, object> _object, string property)
         {
             var index = property.IndexOf('.');
             if (index != -1)
-                return GetElementPosition((Dictionary<string, object>)_object[property.Substring(0, index)], property.Substring(index + 1));
+                return GetLeafContainerElement((Dictionary<string, object>)_object[property.Substring(0, index)], property.Substring(index + 1));
             else
                 return _object;
         }
 
-        private static string GetElementName(string property)
+        /// <summary>
+        /// Takes the leaf name
+        /// </summary>
+        private static string GetLeafName(string property)
         {
             var index = property.LastIndexOf('.');
             if (index != -1)
