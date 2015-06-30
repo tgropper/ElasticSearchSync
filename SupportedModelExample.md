@@ -217,4 +217,29 @@
 ```
 ##### attributeName: array.nested5.rowParadigmInArray
 ```
+{
+	..
+	nested1: {
+		..
+		nested2: {
+			..
+			array: [{
+				key: 2
+				field10: val10
+				nested5: {
+					field11: nes5val11
+					nested6: {
+						..
+					}
+					rowParadigmInArray: {
+						field15: val15
+						nested8: {
+							field16: nes8val14
+						}
+					}
+				}
+			}]
+		}
+	}
+}
 ```
