@@ -149,7 +149,7 @@
 	field1: val1
 	..
 	rowParadigm: {
-		field6: val5
+		field6: val6
 		nested3: {
 			field7: nes3val7
 			nested4: {
