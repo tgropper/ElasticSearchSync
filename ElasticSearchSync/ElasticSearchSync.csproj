@@ -53,11 +53,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Helpers\ElasticsearchHelpers.cs" />
+    <Compile Include="SyncArrayConfiguration.cs" />
     <Compile Include="SyncConfiguration.cs" />
     <Compile Include="Helpers\DataReaderExtensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Sync.cs" />
+    <Compile Include="SyncDeleteConfiguration.cs" />
     <Compile Include="SyncLock.cs" />
+    <Compile Include="SyncObjectConfiguration.cs" />
     <Compile Include="SyncResponse.cs" />
   </ItemGroup>
   <ItemGroup>

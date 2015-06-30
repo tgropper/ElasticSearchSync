@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Text;
 
 namespace ElasticSearchSync
@@ -91,7 +92,7 @@ namespace ElasticSearchSync
                 if (lastSyncDate == null)
                 {
                     var lastSyncResponse = GetLastSync();
-                    if (lastSyncResponse.Response == null || (bool)lastSyncResponse.Response["found"] == false)
+                    if (lastSyncResponse == null || lastSyncResponse.Response == null || (bool)lastSyncResponse.Response["found"] == false)
                     {
                         _config.FilterArrayByParentsIds = false;
                         return null;
@@ -118,7 +119,14 @@ namespace ElasticSearchSync
         private ElasticsearchResponse<DynamicDictionary> GetLastSync()
         {
             stopwatch.Start();
-            var lastSyncResponse = client.Get(LogIndex, LastLogType, LastLogID);
+            ElasticsearchResponse<DynamicDictionary> lastSyncResponse = null;
+            try
+            {
+                lastSyncResponse = client.Get(LogIndex, LastLogType, LastLogID);
+            }
+            catch (WebException)
+            { }
+            
             stopwatch.Stop();
             log.Debug(String.Format("last sync search duration: {0}ms", stopwatch.ElapsedMilliseconds));
             stopwatch.Reset();
@@ -207,7 +215,7 @@ namespace ElasticSearchSync
         }
 
         /// <summary>
-        /// Log in {logIndex}/{logBulkType} the bulk result and metrics
+        /// Log in {logIndex}/{logBulkType} the bulk serializedNewObject and metrics
         /// </summary>
         private void LogBulk(BulkResponse bulkResponse)
         {
@@ -302,6 +310,30 @@ namespace ElasticSearchSync
                         stopwatch.Reset();
 
                         data = rdr.SerializeArray(data, arrayConfig.AttributeName, arrayConfig.XmlFields, arrayConfig.InsertIntoArrayComparerKey);
+                    }
+                }
+
+                foreach (var objectConfig in _config.ObjectsConfiguration)
+                {
+                    objectConfig.SqlCommand.CommandTimeout = 0;
+                    if (_config.FilterArrayByParentsIds && objectConfig.ParentIdColumn != null)
+                    {
+                        var conditionBuilder = new StringBuilder()
+                            .Append(objectConfig.ParentIdColumn)
+                            .Append(" IN (")
+                            .Append(String.Join(",", dataIds))
+                            .Append(")");
+
+                        objectConfig.SqlCommand.CommandText = AddSqlCondition(objectConfig.SqlCommand.CommandText, conditionBuilder.ToString());
+                    }
+                    stopwatch.Start();
+                    using (SqlDataReader rdr = objectConfig.SqlCommand.ExecuteReader())
+                    {
+                        stopwatch.Stop();
+                        log.Debug(String.Format("object sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
+                        stopwatch.Reset();
+
+                        data = rdr.SerializeObject(data, objectConfig.AttributeName, objectConfig.InsertIntoArrayComparerKey);
                     }
                 }
 
