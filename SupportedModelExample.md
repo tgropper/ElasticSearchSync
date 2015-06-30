@@ -153,8 +153,8 @@
 		nested3: {
 			field7: nes3val7
 			nested4: {
-				nes3nes4field8
-				nes3nes4field9
+				field8: nes3nes4field8
+				field9: nes3nes4field9
 			}
 		}
 	}
