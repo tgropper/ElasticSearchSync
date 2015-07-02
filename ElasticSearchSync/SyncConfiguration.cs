@@ -61,6 +61,7 @@ namespace ElasticSearchSync
         {
             BulkSize = 1000;
             ArraysConfiguration = new List<SyncArrayConfiguration>();
+            ObjectsConfiguration = new List<SyncObjectConfiguration>();
         }
     }
 }
