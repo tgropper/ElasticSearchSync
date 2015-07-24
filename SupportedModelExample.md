@@ -102,36 +102,6 @@
 	}]
 }
 ```
-##### attribute name: array.nested5.nested6.arrayInception
-```
-{
-	..
-	nested1: {
-		..
-		nested2: {
-			..
-			array: [{
-				key: 2
-				field10: val10
-				nested5: {
-					field11: nes5val11
-					nested6: {
-						nes5nes6val12
-						arrayInception: [{
-							key: 3
-							field13: val13
-							nested7: {
-								field14: nes7val14
-							}
-						}]
-					}
-				}
-			}]
-		}
-	}
-}
-```
-
 
 ### Nested object built with Row paradigm (continuing with basic model)
 #### sql data
