@@ -96,18 +96,23 @@ namespace ElasticSearchSync.Helpers
 
                 var existingArray = (List<Dictionary<string, dynamic>>)existingArrayContainerElement[existingArrayKey];
 
-                foreach (var arrayElement in arrayElements)
+                var arrayElementsGroupedByArray = arrayElements
+                    .GroupBy(x => x[insertIntoArrayComparerKey.NewElementComparerKey])
+                    .ToDictionary(x => x.Key, x => x.ToList());
+
+                foreach (var arrayElementsByArray in arrayElementsGroupedByArray)
                 {
-                    if (!existingArray.Any(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == arrayElement[insertIntoArrayComparerKey.NewElementComparerKey].ToString()))
+                    var arrayToInsert = arrayElementsByArray.Value;
+
+                    if (!existingArray.Any(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == arrayElementsByArray.Key.ToString()))
                         throw new Exception("There is no element in the existing array that matches with the key from the serialized array");
 
-                    newArrayContainerElement = existingArray.First(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == arrayElement[insertIntoArrayComparerKey.NewElementComparerKey].ToString());
-                    var arrayElementWithoutComparerKey = arrayElement.Where(x => x.Key != insertIntoArrayComparerKey.NewElementComparerKey).ToDictionary(x => x.Key, x => x.Value);
+                    newArrayContainerElement = existingArray.First(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == arrayElementsByArray.Key.ToString());
 
                     if (!newArrayContainerElement.ContainsKey(newArrayKey))
-                        newArrayContainerElement.Add(newArrayKey, new List<Dictionary<string, object>>());
-
-                    ((List<Dictionary<string, object>>)newArrayContainerElement[newArrayKey]).Add(arrayElementWithoutComparerKey);
+                        newArrayContainerElement.Add(newArrayKey, new Dictionary<string, object>());
+                 
+                    newArrayContainerElement[newArrayKey] = arrayToInsert;
                 }
             }
             else
@@ -172,7 +177,7 @@ namespace ElasticSearchSync.Helpers
                             var objectToInsert = SerializeObjectFields(serializedNewObjectInArray.Value);
 
                             if (!existingArray.Any(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == serializedNewObjectInArray.Key.ToString()))
-                                throw new Exception("There is no element in the existing array that matches with the key from the serialized array");
+                                throw new Exception("There is no element in the existing array that matches with the key from the serialized dynamic object");
 
                             newObjectContainerElement = existingArray.First(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == serializedNewObjectInArray.Key.ToString());
 
@@ -184,9 +189,6 @@ namespace ElasticSearchSync.Helpers
                     else
                     {
                         newObjectContainerElement = GetLeafContainerElement(@object.Value, attributeName);
-
-                        if (!newObjectContainerElement.ContainsKey(newObjectKey))
-                            newObjectContainerElement.Add(newObjectKey, new Dictionary<string, object>());
                         newObjectContainerElement[newObjectKey] = SerializeObjectFields(serializedNewObject);
                     }
                 }
