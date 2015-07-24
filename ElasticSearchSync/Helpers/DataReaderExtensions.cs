@@ -98,7 +98,7 @@ namespace ElasticSearchSync.Helpers
 
                 var arrayElementsGroupedByArray = arrayElements
                     .GroupBy(x => x[insertIntoArrayComparerKey.NewElementComparerKey])
-                    .ToDictionary(x => x.Key, x => x.ToList());
+                    .ToDictionary(x => x.Key, x => x.Select(y => y.Where(z => z.Key != insertIntoArrayComparerKey.NewElementComparerKey)).ToList());
 
                 foreach (var arrayElementsByArray in arrayElementsGroupedByArray)
                 {
