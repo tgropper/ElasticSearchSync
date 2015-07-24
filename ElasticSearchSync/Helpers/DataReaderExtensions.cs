@@ -148,7 +148,6 @@ namespace ElasticSearchSync.Helpers
                 if (serializationResults.ContainsKey(@object.Key))
                 {
                     var serializedNewObject = serializationResults[@object.Key];
-                    var objectToInsert = SerializeObjectFields(serializedNewObject);
 
                     var newObjectKey = GetLeafName(attributeName);
                     Dictionary<string, object> newObjectContainerElement = null;
@@ -164,21 +163,32 @@ namespace ElasticSearchSync.Helpers
 
                         var existingArray = (List<Dictionary<string, dynamic>>)existingArrayContainerElement[existingArrayKey];
 
-                        var existingArrayElementId = serializedNewObject.First()[insertIntoArrayComparerKey.NewElementComparerKey].ToString();
-                        if (!existingArray.Any(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == existingArrayElementId))
-                            throw new Exception("There is no element in the existing array that matches with the key from the serialized array");
+                        var serializedNewObjectByArray = serializedNewObject
+                            .GroupBy(x => x[insertIntoArrayComparerKey.NewElementComparerKey])
+                            .ToDictionary(x => x.Key, x => x.ToList());
 
-                        newObjectContainerElement = existingArray.First(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == existingArrayElementId);
+                        foreach (var serializedNewObjectInArray in serializedNewObjectByArray)
+                        {
+                            var objectToInsert = SerializeObjectFields(serializedNewObjectInArray.Value);
+
+                            if (!existingArray.Any(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == serializedNewObjectInArray.Key.ToString()))
+                                throw new Exception("There is no element in the existing array that matches with the key from the serialized array");
+
+                            newObjectContainerElement = existingArray.First(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == serializedNewObjectInArray.Key.ToString());
+
+                            if (!newObjectContainerElement.ContainsKey(newObjectKey))
+                                newObjectContainerElement.Add(newObjectKey, new Dictionary<string, object>());
+                            newObjectContainerElement[newObjectKey] = objectToInsert;
+                        }
                     }
                     else
                     {
                         newObjectContainerElement = GetLeafContainerElement(@object.Value, attributeName);
+
+                        if (!newObjectContainerElement.ContainsKey(newObjectKey))
+                            newObjectContainerElement.Add(newObjectKey, new Dictionary<string, object>());
+                        newObjectContainerElement[newObjectKey] = SerializeObjectFields(serializedNewObject);
                     }
-
-                    if (!newObjectContainerElement.ContainsKey(newObjectKey))
-                        newObjectContainerElement.Add(newObjectKey, new Dictionary<string, object>());
-
-                    newObjectContainerElement[newObjectKey] = objectToInsert;
                 }
             }
 
