@@ -94,7 +94,6 @@ namespace ElasticSearchSync
                     var lastSyncResponse = GetLastSync();
                     if (lastSyncResponse == null || lastSyncResponse.Response == null || (bool)lastSyncResponse.Response["found"] == false)
                     {
-                        _config.FilterArrayByParentsIds = false;
                         return null;
                     }
 
@@ -292,16 +291,6 @@ namespace ElasticSearchSync
                 foreach (var arrayConfig in _config.ArraysConfiguration)
                 {
                     arrayConfig.SqlCommand.CommandTimeout = 0;
-                    if (_config.FilterArrayByParentsIds && arrayConfig.ParentIdColumn != null)
-                    {
-                        var conditionBuilder = new StringBuilder()
-                            .Append(arrayConfig.ParentIdColumn)
-                            .Append(" IN (")
-                            .Append(String.Join(",", dataIds))
-                            .Append(")");
-
-                        arrayConfig.SqlCommand.CommandText = AddSqlCondition(arrayConfig.SqlCommand.CommandText, conditionBuilder.ToString());
-                    }
                     stopwatch.Start();
                     using (SqlDataReader rdr = arrayConfig.SqlCommand.ExecuteReader())
                     {
@@ -316,16 +305,6 @@ namespace ElasticSearchSync
                 foreach (var objectConfig in _config.ObjectsConfiguration)
                 {
                     objectConfig.SqlCommand.CommandTimeout = 0;
-                    if (_config.FilterArrayByParentsIds && objectConfig.ParentIdColumn != null)
-                    {
-                        var conditionBuilder = new StringBuilder()
-                            .Append(objectConfig.ParentIdColumn)
-                            .Append(" IN (")
-                            .Append(String.Join(",", dataIds))
-                            .Append(")");
-
-                        objectConfig.SqlCommand.CommandText = AddSqlCondition(objectConfig.SqlCommand.CommandText, conditionBuilder.ToString());
-                    }
                     stopwatch.Start();
                     using (SqlDataReader rdr = objectConfig.SqlCommand.ExecuteReader())
                     {

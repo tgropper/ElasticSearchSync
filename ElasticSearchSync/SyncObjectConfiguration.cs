@@ -101,11 +101,16 @@ namespace ElasticSearchSync
         /// </example>
         public string AttributeName { get; set; }
 
-        public string ParentIdColumn { get; set; }
-
         /// <summary>
-        /// If it has value, the object will be inserted within an array, matching the value of the second column with the array element taken by this key
+        /// TODO
         /// </summary>
-        public string InsertIntoArrayComparerKey { get; set; }
+        public InsertIntoArrayComparerKey InsertIntoArrayComparerKey { get; set; }
+    }
+
+    public class InsertIntoArrayComparerKey
+    {
+        public string NewElementComparerKey { get; set; }
+
+        public string ExistingArrayComparerKey { get; set; }
     }
 }

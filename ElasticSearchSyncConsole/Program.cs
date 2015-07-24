@@ -27,8 +27,7 @@ namespace ElasticSearchSyncConsole
                             FROM dbo.Tags
                             WHERE languageId = 'es'"
                             , conn),
-                        AttributeName = "tags",
-                        ParentIdColumn = "_id"
+                        AttributeName = "tags"
                     },
                     new SyncArrayConfiguration
                     {
@@ -38,7 +37,6 @@ namespace ElasticSearchSyncConsole
                             WHERE languageId = 'es'"
                             , conn),
                         AttributeName = "categories",
-                        ParentIdColumn = "_id",
                         XmlFields = new string[] { "xmlData" }
                     }
                 };
@@ -66,7 +64,6 @@ namespace ElasticSearchSyncConsole
                     SqlConnection = conn,
                     SqlCommand = cmd,
                     ArraysConfiguration = arrayConfig,
-                    FilterArrayByParentsIds = true,
                     ColumnsToCompareWithLastSyncDate = new string[] { "[lastupdate]" },
                     DeleteConfiguration = deleteCmd,
                     ElasticSearchConfiguration = esConfig,

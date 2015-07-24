@@ -45,52 +45,76 @@ namespace ElasticSearchSync.Helpers
             Dictionary<object, Dictionary<string, object>> results,
             string attributeName,
             string[] xmlFields = null,
-            string insertIntoArrayComparerKey = null)
+            InsertIntoArrayComparerKey insertIntoArrayComparerKey = null)
         {
+            var arrayElements = new Dictionary<object, List<Dictionary<string, object>>>();
             var cols = new List<string>();
             for (var i = 0; i < reader.FieldCount; i++)
                 cols.Add(reader.GetName(i));
 
             while (reader.Read())
             {
-                var serializedRow = SerializeRow(cols, reader, xmlFields);
-                if (!results.ContainsKey(serializedRow.Values.First()))
-                    throw new Exception(String.Format("Array element is related with an object with _id {0}, but it doesn't belong to serialized objects list", serializedRow.Values.First()));
+                var r = SerializeRow(cols, reader, xmlFields);
+                var key = r.Values.First();
+                if (!arrayElements.ContainsKey(key))
+                    arrayElements.Add(key, new List<Dictionary<string, object>>());
 
-                var _object = results[serializedRow.Values.First()];
-                serializedRow = serializedRow.Skip(1).ToDictionary(x => x.Key, x => x.Value);
+                r = r.Skip(1).ToDictionary(x => x.Key, x => x.Value);
+                ((List<Dictionary<string, object>>)arrayElements[key]).Add(r);
+            }
 
-                var newArrayKey = GetLeafName(attributeName);
-                Dictionary<string, object> newArrayContainerElement = null;
-                if (insertIntoArrayComparerKey != null)
+            //var arrayElements = reader.Serialize(xmlFields)
+            //        .Select(x => x.Value)
+            //        .GroupBy(x => x.Values.First())
+            //        .ToDictionary(x => x.Key, x => x.Select(y => y.Skip(1).ToDictionary(w => w.Key, w => w.Value)).ToList());
+            foreach (var @object in results)
+            {
+                if (arrayElements.ContainsKey(@object.Key))
                 {
-                    var existingArrayAttributeName = attributeName.Substring(0, attributeName.Count() - newArrayKey.Count() - 1);
-                    var existingArrayContainerElement = GetLeafContainerElement(_object, existingArrayAttributeName);
-                    var existingArrayKey = GetLeafName(existingArrayAttributeName);
-
-                    if (!existingArrayContainerElement.ContainsKey(existingArrayKey))
-                        throw new Exception("The array property, where you are trying to insert the new array, is not a valid property of the primary object. You have to serialize that array first");
-
-                    var existingArray = (List<dynamic>)existingArrayContainerElement[existingArrayKey];
-
-                    if (!existingArray.Any(x => x[insertIntoArrayComparerKey].ToString() == serializedRow.Values.First().ToString()))
-                        throw new Exception("There is no element in the existing array that matches with the key from the serialized array");
-
-                    newArrayContainerElement = existingArray.First(x => x[insertIntoArrayComparerKey].ToString() == serializedRow.Values.First().ToString());
-                    serializedRow = serializedRow.Skip(1).ToDictionary(x => x.Key, x => x.Value);
+                    AddArray(@object.Value, arrayElements[@object.Key], attributeName, insertIntoArrayComparerKey);
                 }
-                else
-                {
-                    newArrayContainerElement = GetLeafContainerElement(_object, attributeName);
-                }
-
-                if (!newArrayContainerElement.ContainsKey(newArrayKey))
-                    newArrayContainerElement.Add(newArrayKey, new List<object>());
-
-                ((List<object>)newArrayContainerElement[newArrayKey]).Add(serializedRow);
             }
 
             return results;
+        }
+        private static void AddArray(
+           Dictionary<string, object> @object,
+           IEnumerable<Dictionary<string, object>> arrayElements,
+           string fieldName,
+           InsertIntoArrayComparerKey insertIntoArrayComparerKey = null)
+        {
+            var newArrayKey = GetLeafName(fieldName);
+            Dictionary<string, object> newArrayContainerElement = null;
+            if (insertIntoArrayComparerKey != null)
+            {
+                var existingArrayAttributeName = fieldName.Substring(0, fieldName.Count() - newArrayKey.Count() - 1);
+                var existingArrayContainerElement = GetLeafContainerElement(@object, existingArrayAttributeName);
+                var existingArrayKey = GetLeafName(existingArrayAttributeName);
+
+                if (!existingArrayContainerElement.ContainsKey(existingArrayKey))
+                    throw new Exception("The array property, where you are trying to insert the new array, is not a valid property of the primary object. You have to serialize that array first");
+
+                var existingArray = (List<Dictionary<string, dynamic>>)existingArrayContainerElement[existingArrayKey];
+
+                foreach (var arrayElement in arrayElements)
+                {
+                    if (!existingArray.Any(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == arrayElement[insertIntoArrayComparerKey.NewElementComparerKey].ToString()))
+                        throw new Exception("There is no element in the existing array that matches with the key from the serialized array");
+
+                    newArrayContainerElement = existingArray.First(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == arrayElement[insertIntoArrayComparerKey.NewElementComparerKey].ToString());
+                    var arrayElementWithoutComparerKey = arrayElement.Where(x => x.Key != insertIntoArrayComparerKey.NewElementComparerKey).ToDictionary(x => x.Key, x => x.Value);
+
+                    if (!newArrayContainerElement.ContainsKey(newArrayKey))
+                        newArrayContainerElement.Add(newArrayKey, new List<Dictionary<string, object>>());
+
+                    ((List<Dictionary<string, object>>)newArrayContainerElement[newArrayKey]).Add(arrayElementWithoutComparerKey);
+                }
+            }
+            else
+            {
+                newArrayContainerElement = GetLeafContainerElement(@object, fieldName);
+                newArrayContainerElement[newArrayKey] = arrayElements;
+            }
         }
 
         /// <summary>
@@ -100,7 +124,7 @@ namespace ElasticSearchSync.Helpers
             this SqlDataReader reader,
             Dictionary<object, Dictionary<string, object>> results,
             string attributeName,
-            string insertIntoArrayComparerKey = null)
+            InsertIntoArrayComparerKey insertIntoArrayComparerKey = null)
         {
             var cols = new List<string>();
             for (var i = 0; i < reader.FieldCount; i++)
@@ -119,44 +143,47 @@ namespace ElasticSearchSync.Helpers
                 serializationResults[serializationKey].Add(serializedRow);
             }
 
-            foreach (var serializedNewObject in serializationResults)
+            var objectElements = reader.Serialize()
+                    .Select(x => x.Value)
+                    .GroupBy(x => x.Values.First())
+                    .ToDictionary(x => x.Key, x => x.Select(y => y.Skip(1).ToDictionary(w => w.Key, w => w.Value)).ToList());
+            foreach (var @object in results)
             {
-                if (!results.ContainsKey(serializedNewObject.Key))
-                    throw new Exception(String.Format("Object element is related with an object with _id {0}, but it doesn't belong to serialized objects list", serializedNewObject.Key));
-
-                var _object = results[serializedNewObject.Key];
-
-                var objectToInsert = SerializeObjectFields(serializedNewObject.Value);
-
-                var newObjectKey = GetLeafName(attributeName);
-                Dictionary<string, object> newObjectContainerElement = null;
-
-                if (insertIntoArrayComparerKey != null)
+                if (objectElements.ContainsKey(@object.Key))
                 {
-                    var existingArrayAttributeName = attributeName.Substring(0, attributeName.Count() - newObjectKey.Count() - 1);
-                    var existingArrayContainerElement = GetLeafContainerElement(_object, existingArrayAttributeName);
-                    var existingArrayKey = GetLeafName(existingArrayAttributeName);
+                    var serializedNewObject = serializationResults[@object.Key];
+                    var objectToInsert = SerializeObjectFields(serializedNewObject);
 
-                    if (!existingArrayContainerElement.ContainsKey(existingArrayKey))
-                        throw new Exception("The array property, where you are trying to insert the new array, is not a valid property of the primary object. You have to serialize that array first");
+                    var newObjectKey = GetLeafName(attributeName);
+                    Dictionary<string, object> newObjectContainerElement = null;
 
-                    var existingArray = (List<dynamic>)existingArrayContainerElement[existingArrayKey];
+                    if (insertIntoArrayComparerKey != null)
+                    {
+                        var existingArrayAttributeName = attributeName.Substring(0, attributeName.Count() - newObjectKey.Count() - 1);
+                        var existingArrayContainerElement = GetLeafContainerElement(@object.Value, existingArrayAttributeName);
+                        var existingArrayKey = GetLeafName(existingArrayAttributeName);
 
-                    var existingArrayElementId = serializedNewObject.Value.First()[insertIntoArrayComparerKey].ToString();
-                    if (!existingArray.Any(x => x[insertIntoArrayComparerKey].ToString() == existingArrayElementId))
-                        throw new Exception("There is no element in the existing array that matches with the key from the serialized array");
+                        if (!existingArrayContainerElement.ContainsKey(existingArrayKey))
+                            throw new Exception("The array property, where you are trying to insert the new array, is not a valid property of the primary object. You have to serialize that array first");
 
-                    newObjectContainerElement = existingArray.First(x => x[insertIntoArrayComparerKey].ToString() == existingArrayElementId);
+                        var existingArray = (List<dynamic>)existingArrayContainerElement[existingArrayKey];
+
+                        var existingArrayElementId = serializedNewObject.First()[insertIntoArrayComparerKey.NewElementComparerKey].ToString();
+                        if (!existingArray.Any(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == existingArrayElementId))
+                            throw new Exception("There is no element in the existing array that matches with the key from the serialized array");
+
+                        newObjectContainerElement = existingArray.First(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == existingArrayElementId);
+                    }
+                    else
+                    {
+                        newObjectContainerElement = GetLeafContainerElement(@object.Value, attributeName);
+                    }
+
+                    if (!newObjectContainerElement.ContainsKey(newObjectKey))
+                        newObjectContainerElement.Add(newObjectKey, new Dictionary<string, object>());
+
+                    newObjectContainerElement[newObjectKey] = objectToInsert;
                 }
-                else
-                {
-                    newObjectContainerElement = GetLeafContainerElement(_object, attributeName);
-                }
-
-                if (!newObjectContainerElement.ContainsKey(newObjectKey))
-                    newObjectContainerElement.Add(newObjectKey, new Dictionary<string, object>());
-
-                newObjectContainerElement[newObjectKey] = objectToInsert;
             }
 
             return results;
