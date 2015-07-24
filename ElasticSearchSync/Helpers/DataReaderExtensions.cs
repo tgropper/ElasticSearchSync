@@ -143,13 +143,9 @@ namespace ElasticSearchSync.Helpers
                 serializationResults[serializationKey].Add(serializedRow);
             }
 
-            var objectElements = reader.Serialize()
-                    .Select(x => x.Value)
-                    .GroupBy(x => x.Values.First())
-                    .ToDictionary(x => x.Key, x => x.Select(y => y.Skip(1).ToDictionary(w => w.Key, w => w.Value)).ToList());
             foreach (var @object in results)
             {
-                if (objectElements.ContainsKey(@object.Key))
+                if (serializationResults.ContainsKey(@object.Key))
                 {
                     var serializedNewObject = serializationResults[@object.Key];
                     var objectToInsert = SerializeObjectFields(serializedNewObject);
@@ -166,7 +162,7 @@ namespace ElasticSearchSync.Helpers
                         if (!existingArrayContainerElement.ContainsKey(existingArrayKey))
                             throw new Exception("The array property, where you are trying to insert the new array, is not a valid property of the primary object. You have to serialize that array first");
 
-                        var existingArray = (List<dynamic>)existingArrayContainerElement[existingArrayKey];
+                        var existingArray = (List<Dictionary<string, dynamic>>)existingArrayContainerElement[existingArrayKey];
 
                         var existingArrayElementId = serializedNewObject.First()[insertIntoArrayComparerKey.NewElementComparerKey].ToString();
                         if (!existingArray.Any(x => x[insertIntoArrayComparerKey.ExistingArrayComparerKey].ToString() == existingArrayElementId))
