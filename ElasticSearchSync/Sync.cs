@@ -20,12 +20,12 @@ namespace ElasticSearchSync
         private Stopwatch stopwatch { get; set; }
 
         private SyncConfiguration _config;
-        private const string LogIndex = "sqlserver_es_sync";
+        private string LogIndex = ConfigSection.Default.Index.Name ?? "sqlserver_es_sync";
         private string LogType = "log";
         private string BulkLogType = "bulk_log";
         private string LockType = "lock";
         private string LastLogType = "last_log";
-        private const string LastLogID = "1";
+        private string LastLogID = "1";
 
         public Sync(SyncConfiguration config)
         {
