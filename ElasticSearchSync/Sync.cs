@@ -30,7 +30,7 @@ namespace ElasticSearchSync
         public Sync(SyncConfiguration config)
         {
             _config = config;
-            log4net.Config.BasicConfigurator.Configure();
+            log4net.Config.XmlConfigurator.Configure();
             log = log4net.LogManager.GetLogger("SQLSERVER-ES Sync");
             stopwatch = new Stopwatch();
 

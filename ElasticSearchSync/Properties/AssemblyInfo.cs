@@ -21,6 +21,8 @@ using System.Runtime.InteropServices;
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("82f2f0e6-b945-4e84-b058-f64da981e3f4")]
 
+[assembly: log4net.Config.XmlConfigurator(Watch = true)]
+
 // Version information for an assembly consists of the following four values:
 //
 //      Major Version
