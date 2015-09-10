@@ -31,7 +31,7 @@ namespace ElasticSearchSync
         {
             _config = config;
             log4net.Config.XmlConfigurator.Configure();
-            log = log4net.LogManager.GetLogger("SQLSERVER-ES Sync");
+            log = log4net.LogManager.GetLogger(String.Format("SQLSERVER-ES Sync - {0}/{1}", config._Index, config._Type));
             stopwatch = new Stopwatch();
 
             LogType = String.Format("{0}_{1}_{2}", LogType, _config._Index, _config._Type);
@@ -42,43 +42,51 @@ namespace ElasticSearchSync
 
         public SyncResponse Exec()
         {
-            var startedOn = DateTime.UtcNow;
-            log.Info("process started at " + startedOn.NormalizedFormat());
-            client = new ElasticsearchClient(_config.ElasticSearchConfiguration);
-
-            using (var _lock = new SyncLock(client, LogIndex, LockType))
+            try
             {
-                DateTime? lastSyncDate = ConfigureIncrementalProcess(_config.SqlCommand, _config.ColumnsToCompareWithLastSyncDate);
+                var startedOn = DateTime.UtcNow;
+                log.Info("process started at " + startedOn.NormalizedFormat());
+                client = new ElasticsearchClient(_config.ElasticSearchConfiguration);
 
-                var data = GetSerializedObject();
-                log.Info(String.Format("{0} objects have been serialized.", data.Count()));
-
-                var syncResponse = new SyncResponse(startedOn);
-
-                syncResponse = IndexProcess(data, syncResponse);
-
-                if (_config.DeleteConfiguration != null)
+                using (var _lock = new SyncLock(client, LogIndex, LockType))
                 {
-                    _config.SqlConnection.Open();
-                    Dictionary<object, Dictionary<string, object>> deleteData = null;
+                    DateTime? lastSyncDate = ConfigureIncrementalProcess(_config.SqlCommand, _config.ColumnsToCompareWithLastSyncDate);
 
-                    if (lastSyncDate != null)
-                        ConfigureIncrementalProcess(_config.DeleteConfiguration.SqlCommand, _config.DeleteConfiguration.ColumnsToCompareWithLastSyncDate, lastSyncDate);
+                    var data = GetSerializedObject();
+                    log.Info(String.Format("{0} objects have been serialized.", data.Count()));
 
-                    using (SqlDataReader rdr = _config.DeleteConfiguration.SqlCommand.ExecuteReader())
+                    var syncResponse = new SyncResponse(startedOn);
+
+                    syncResponse = IndexProcess(data, syncResponse);
+
+                    if (_config.DeleteConfiguration != null)
                     {
-                        deleteData = rdr.Serialize();
+                        _config.SqlConnection.Open();
+                        Dictionary<object, Dictionary<string, object>> deleteData = null;
+
+                        if (lastSyncDate != null)
+                            ConfigureIncrementalProcess(_config.DeleteConfiguration.SqlCommand, _config.DeleteConfiguration.ColumnsToCompareWithLastSyncDate, lastSyncDate);
+
+                        using (SqlDataReader rdr = _config.DeleteConfiguration.SqlCommand.ExecuteReader())
+                        {
+                            deleteData = rdr.Serialize();
+                        }
+                        _config.SqlConnection.Close();
+
+                        syncResponse = DeleteProcess(deleteData, syncResponse);
                     }
-                    _config.SqlConnection.Close();
 
-                    syncResponse = DeleteProcess(deleteData, syncResponse);
+                    syncResponse = Log(syncResponse);
+
+                    log.Info(String.Format("process duration: {0}ms", Math.Truncate((syncResponse.EndedOn - syncResponse.StartedOn).TotalMilliseconds)));
+
+                    return syncResponse;
                 }
-
-                syncResponse = Log(syncResponse);
-
-                log.Info(String.Format("process duration: {0}ms", Math.Truncate((syncResponse.EndedOn - syncResponse.StartedOn).TotalMilliseconds)));
-
-                return syncResponse;
+            }
+            catch (Exception ex)
+            {
+                log.Error("an error has occurred: " + ex);
+                throw ex;
             }
         }
 
@@ -127,7 +135,7 @@ namespace ElasticSearchSync
             { }
             
             stopwatch.Stop();
-            log.Debug(String.Format("last sync search duration: {0}ms", stopwatch.ElapsedMilliseconds));
+            log.Info(String.Format("last sync search duration: {0}ms", stopwatch.ElapsedMilliseconds));
             stopwatch.Reset();
 
             return lastSyncResponse;
@@ -259,7 +267,7 @@ namespace ElasticSearchSync
             client.Bulk(logBulk);
 
             stopwatch.Stop();
-            log.Debug(String.Format("log index duration: {0}ms", stopwatch.ElapsedMilliseconds));
+            log.Info(String.Format("log index duration: {0}ms", stopwatch.ElapsedMilliseconds));
             stopwatch.Reset();
 
             return syncResponse;
@@ -277,7 +285,7 @@ namespace ElasticSearchSync
                 using (SqlDataReader rdr = _config.SqlCommand.ExecuteReader())
                 {
                     stopwatch.Stop();
-                    log.Debug(String.Format("sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
+                    log.Info(String.Format("sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
                     stopwatch.Reset();
 
                     data = rdr.Serialize(_config.XmlFields);
@@ -295,7 +303,7 @@ namespace ElasticSearchSync
                     using (SqlDataReader rdr = arrayConfig.SqlCommand.ExecuteReader())
                     {
                         stopwatch.Stop();
-                        log.Debug(String.Format("array sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
+                        log.Info(String.Format("array sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
                         stopwatch.Reset();
 
                         data = rdr.SerializeArray(data, arrayConfig.AttributeName, arrayConfig.XmlFields, arrayConfig.InsertIntoArrayComparerKey);
@@ -309,7 +317,7 @@ namespace ElasticSearchSync
                     using (SqlDataReader rdr = objectConfig.SqlCommand.ExecuteReader())
                     {
                         stopwatch.Stop();
-                        log.Debug(String.Format("object sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
+                        log.Info(String.Format("object sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
                         stopwatch.Reset();
 
                         data = rdr.SerializeObject(data, objectConfig.AttributeName, objectConfig.InsertIntoArrayComparerKey);
