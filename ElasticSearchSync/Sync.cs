@@ -40,15 +40,15 @@ namespace ElasticSearchSync
             LastLogType = String.Format("{0}_{1}_{2}", LastLogType, _config._Index, _config._Type);
         }
 
-        public SyncResponse Exec()
+        public SyncResponse Exec(bool force = false)
         {
             try
             {
                 var startedOn = DateTime.UtcNow;
-                log.Info("process started at " + startedOn.NormalizedFormat());
+                log.Debug("process started at " + startedOn.NormalizedFormat());
                 client = new ElasticsearchClient(_config.ElasticSearchConfiguration);
 
-                using (var _lock = new SyncLock(client, LogIndex, LockType))
+                using (var _lock = new SyncLock(client, LogIndex, LockType, force))
                 {
                     DateTime? lastSyncDate = ConfigureIncrementalProcess(_config.SqlCommand, _config.ColumnsToCompareWithLastSyncDate);
 
@@ -78,7 +78,7 @@ namespace ElasticSearchSync
 
                     syncResponse = Log(syncResponse);
 
-                    log.Info(String.Format("process duration: {0}ms", Math.Truncate((syncResponse.EndedOn - syncResponse.StartedOn).TotalMilliseconds)));
+                    log.Debug(String.Format("process duration: {0}ms", Math.Truncate((syncResponse.EndedOn - syncResponse.StartedOn).TotalMilliseconds)));
 
                     return syncResponse;
                 }

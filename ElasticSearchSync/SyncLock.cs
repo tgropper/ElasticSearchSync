@@ -13,17 +13,23 @@ namespace ElasticSearchSync
 
         public string LockType { get; set; }
 
-        public SyncLock(ElasticsearchClient client, string index, string type)
+        public bool Force { get; set; }
+
+        public SyncLock(ElasticsearchClient client, string index, string type, bool force = false)
         {
             Client = client;
             LockIndex = index;
             LockType = type;
+            Force = force;
 
             Open();
         }
 
         private void Open()
         {
+            if (Force)
+                return;
+
             var r = Client.Index(LockIndex, LockType, _id, new object(), q => q.OpType(OpType.Create));
             if (r.HttpStatusCode == 409)
                 throw new SyncConcurrencyException();
@@ -31,6 +37,9 @@ namespace ElasticSearchSync
 
         public void Dispose()
         {
+            if (Force)
+                return;
+
             Client.Delete(LockIndex, LockType, _id);
         }
 
