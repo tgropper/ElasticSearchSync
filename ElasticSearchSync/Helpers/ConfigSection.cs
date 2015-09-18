@@ -1,4 +1,5 @@
-﻿using System.Configuration;
+﻿using System;
+using System.Configuration;
 using System.Runtime.Serialization;
 
 namespace ElasticSearchSync.Helpers
@@ -19,6 +20,14 @@ namespace ElasticSearchSync.Helpers
             set { this["index"] = value; }
         }
 
+        [IgnoreDataMember]
+        [ConfigurationProperty("concurrency")]
+        public ConcurrencyConfigurationElement Concurrency
+        {
+            get { return (ConcurrencyConfigurationElement)this["concurrency"]; }
+            set { this["concurrency"] = value; }
+        }
+
         [DataContract]
         public class IndexConfigurationElement : ConfigurationElement
         {
@@ -28,6 +37,18 @@ namespace ElasticSearchSync.Helpers
             {
                 get { return (string)this["name"]; }
                 set { this["name"] = value; }
+            }
+        }
+
+        [DataContract]
+        public class ConcurrencyConfigurationElement : ConfigurationElement
+        {
+            [DataMember]
+            [ConfigurationProperty("duration", IsRequired = false)]
+            public TimeSpan Duration
+            {
+                get { return (TimeSpan)this["duration"]; }
+                set { this["duration"] = value; }
             }
         }
     }

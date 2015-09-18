@@ -1,5 +1,6 @@
 ﻿using Elasticsearch.Net;
 using System;
+using System.Globalization;
 
 namespace ElasticSearchSync
 {
@@ -30,9 +31,36 @@ namespace ElasticSearchSync
             if (Force)
                 return;
 
-            var r = Client.Index(LockIndex, LockType, _id, new object(), q => q.OpType(OpType.Create));
-            if (r.HttpStatusCode == 409)
-                throw new SyncConcurrencyException();
+            var body = new 
+            { 
+                date = DateTime.UtcNow
+            };
+
+            var _lock = Client.Get(LockIndex, LockType, _id);
+            if (!bool.Parse(_lock.Response["found"]))
+            {
+                _lock = Client.Index(LockIndex, LockType, _id, body, q => q.OpType(OpType.Create));
+                if (!_lock.Success)
+                    throw new SyncConcurrencyException(_lock.OriginalException.Message);
+            }
+            else
+            {
+                DateTime lockDate = DateTime.ParseExact(
+                    _lock.Response["_source"].date,
+                    "yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal |
+                    DateTimeStyles.AdjustToUniversal);
+                var duration = Helpers.ConfigSection.Default.Concurrency.Duration;
+
+                if (duration == null || lockDate + duration >= body.date)
+                    throw new SyncConcurrencyException();
+
+                Client.Delete(LockIndex, LockType, _id);
+                _lock = Client.Index(LockIndex, LockType, _id, body, q => q.OpType(OpType.Create));
+                if (!_lock.Success)
+                    throw new SyncConcurrencyException(_lock.OriginalException.Message);
+            }
         }
 
         public void Dispose()
@@ -40,13 +68,18 @@ namespace ElasticSearchSync
             if (Force)
                 return;
 
-            Client.Delete(LockIndex, LockType, _id);
+            var d = Client.Delete(LockIndex, LockType, _id);
+            if (!d.Success)
+                throw new Exception(d.OriginalException.Message);
         }
 
         public class SyncConcurrencyException : Exception
         {
             public SyncConcurrencyException()
                 : base() { }
+
+            public SyncConcurrencyException(string message)
+                : base(message) { }
         }
     }
 }
