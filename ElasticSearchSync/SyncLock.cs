@@ -37,7 +37,7 @@ namespace ElasticSearchSync
             };
 
             var _lock = Client.Get(LockIndex, LockType, _id);
-            if (!bool.Parse(_lock.Response["found"]))
+            if (_lock.HttpStatusCode == 404 || !bool.Parse(_lock.Response["found"]))
             {
                 _lock = Client.Index(LockIndex, LockType, _id, body, q => q.OpType(OpType.Create));
                 if (!_lock.Success)

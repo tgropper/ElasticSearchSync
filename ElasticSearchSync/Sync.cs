@@ -244,7 +244,7 @@ namespace ElasticSearchSync
         {
             stopwatch.Start();
             syncResponse.EndedOn = DateTime.UtcNow;
-            var logBulk = String.Format("{0}{1}", ElasticsearchHelpers.GetPartialIndexBulk(LogIndex, LogType, new
+            var logBulk = ElasticsearchHelpers.GetPartialIndexBulk(LogIndex, LogType, new
             {
                 startedOn = syncResponse.StartedOn,
                 endedOn = syncResponse.EndedOn,
@@ -259,11 +259,15 @@ namespace ElasticSearchSync
                     duration = x.Duration + "ms",
                     exception = x.ESexception != null ? ((Exception)x.ESexception).Message : null
                 })
-            }),
-            ElasticsearchHelpers.GetPartialIndexBulk(LogIndex, LastLogType, LastLogID, new
+            });
+
+            if (_config.ColumnsToCompareWithLastSyncDate != null && _config.ColumnsToCompareWithLastSyncDate.Any())
             {
-                date = syncResponse.StartedOn
-            }));
+                logBulk += ElasticsearchHelpers.GetPartialIndexBulk(LogIndex, LastLogType, LastLogID, new
+                {
+                    date = syncResponse.StartedOn
+                });
+            }
             client.Bulk(logBulk);
 
             stopwatch.Stop();
