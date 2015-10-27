@@ -21,7 +21,7 @@ namespace ElasticSearchSync.Helpers
             while (reader.Read())
             {
                 var r = SerializeRow(cols, reader, xmlFields);
-                results.Add(r.Values.First(), r);
+                results[r.Values.First()] = r;
             }
 
             return results;

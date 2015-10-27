@@ -52,13 +52,9 @@ namespace ElasticSearchSync
                 {
                     DateTime? lastSyncDate = ConfigureIncrementalProcess(_config.SqlCommand, _config.ColumnsToCompareWithLastSyncDate);
 
-                    var data = GetSerializedObject();
-                    log.Info(String.Format("{0} objects have been serialized.", data.Count()));
-
                     var syncResponse = new SyncResponse(startedOn);
 
-                    syncResponse = IndexProcess(data, syncResponse);
-
+                    //DELETE PROCESS
                     if (_config.DeleteConfiguration != null)
                     {
                         _config.SqlConnection.Open();
@@ -76,7 +72,16 @@ namespace ElasticSearchSync
                         syncResponse = DeleteProcess(deleteData, syncResponse);
                     }
 
-                    syncResponse = Log(syncResponse);
+                    //INDEX PROCESS
+                    if (_config.SqlCommand != null)
+                    { 
+                        var data = GetSerializedObject();
+                        log.Info(String.Format("{0} objects have been serialized.", data.Count()));
+                        syncResponse = IndexProcess(data, syncResponse);
+                    }
+
+                    //LOG PROCESS
+                    syncResponse = LogProcess(syncResponse);
 
                     log.Debug(String.Format("process duration: {0}ms", Math.Truncate((syncResponse.EndedOn - syncResponse.StartedOn).TotalMilliseconds)));
 
@@ -222,7 +227,7 @@ namespace ElasticSearchSync
         }
 
         /// <summary>
-        /// Log in {logIndex}/{logBulkType} the bulk serializedNewObject and metrics
+        /// LogProcess in {logIndex}/{logBulkType} the bulk serializedNewObject and metrics
         /// </summary>
         private void LogBulk(BulkResponse bulkResponse)
         {
@@ -238,9 +243,9 @@ namespace ElasticSearchSync
         }
 
         /// <summary>
-        /// Log in {logIndex}/{logType} the synchronization results and metrics
+        /// LogProcess in {logIndex}/{logType} the synchronization results and metrics
         /// </summary>
-        private SyncResponse Log(SyncResponse syncResponse)
+        private SyncResponse LogProcess(SyncResponse syncResponse)
         {
             stopwatch.Start();
             syncResponse.EndedOn = DateTime.UtcNow;
