@@ -15,5 +15,6 @@ This library is tested using the following tools and versions of them:
 	1. [Marvel](http://www.elasticsearch.org/overview/marvel/)
 	2. [Head](https://github.com/mobz/elasticsearch-head)
 	3. [Inquisitor](https://github.com/polyfractal/elasticsearch-inquisitor)
+	4. [HQ](http://www.elastichq.org/)
 	
 	*NOTE:* easiest way to install elasticsearch plugins is using [curl](http://www.paehl.com/open_source/?CURL_7.40.0).
