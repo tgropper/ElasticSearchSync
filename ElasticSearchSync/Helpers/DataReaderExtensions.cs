@@ -77,6 +77,7 @@ namespace ElasticSearchSync.Helpers
 
             return results;
         }
+
         private static void AddArray(
            Dictionary<string, object> @object,
            IEnumerable<Dictionary<string, object>> arrayElements,
@@ -111,7 +112,7 @@ namespace ElasticSearchSync.Helpers
 
                     if (!newArrayContainerElement.ContainsKey(newArrayKey))
                         newArrayContainerElement.Add(newArrayKey, new Dictionary<string, object>());
-                 
+
                     newArrayContainerElement[newArrayKey] = arrayToInsert;
                 }
             }

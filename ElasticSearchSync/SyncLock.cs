@@ -31,8 +31,8 @@ namespace ElasticSearchSync
             if (Force)
                 return;
 
-            var body = new 
-            { 
+            var body = new
+            {
                 date = DateTime.UtcNow
             };
 

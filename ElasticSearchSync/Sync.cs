@@ -74,7 +74,7 @@ namespace ElasticSearchSync
 
                     //INDEX PROCESS
                     if (_config.SqlCommand != null)
-                    { 
+                    {
                         var data = GetSerializedObject();
                         log.Info(String.Format("{0} objects have been serialized.", data.Count()));
                         syncResponse = IndexProcess(data, syncResponse);
@@ -138,7 +138,7 @@ namespace ElasticSearchSync
             }
             catch (WebException)
             { }
-            
+
             stopwatch.Stop();
             log.Info(String.Format("last sync search duration: {0}ms", stopwatch.ElapsedMilliseconds));
             stopwatch.Reset();
