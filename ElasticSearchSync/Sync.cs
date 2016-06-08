@@ -200,14 +200,14 @@ namespace ElasticSearchSync
             Func<string, string, object, Dictionary<string, object>, string> getPartialBulk)
         {
             stopwatch.Start();
-            string partialbulk = string.Empty;
+            StringBuilder partialBulkBuilder = new StringBuilder();
             var bulkStartedOn = DateTime.UtcNow;
 
             //build bulk data
             foreach (var bulkData in data)
-                partialbulk = partialbulk + getPartialBulk(_config._Index, _config._Type, bulkData.Key, bulkData.Value);
+                partialBulkBuilder.Append(getPartialBulk(_config._Index, _config._Type, bulkData.Key, bulkData.Value));
 
-            var response = client.Bulk(partialbulk);
+            var response = client.Bulk(partialBulkBuilder.ToString());
             stopwatch.Stop();
 
             var bulkResponse = new BulkResponse
