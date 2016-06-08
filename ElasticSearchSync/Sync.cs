@@ -51,7 +51,7 @@ namespace ElasticSearchSync
                 using (var _lock = new SyncLock(client, LogIndex, LockType, force))
                 {
                     DateTime? lastSyncDate = ConfigureIncrementalProcess(_config.SqlCommand, _config.ColumnsToCompareWithLastSyncDate);
-                    log.Info(String.Format("last sync date: {0}", lastSyncDate.ToString() ?? "null"));
+                    log.Info(String.Format("last sync date: {0}", lastSyncDate != null ? lastSyncDate.ToString() : "null"));
 
                     var syncResponse = new SyncResponse(startedOn);
 
