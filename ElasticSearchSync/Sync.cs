@@ -159,7 +159,9 @@ namespace ElasticSearchSync
 
                 var bulkResponse = BulkIndexProcess(partialData);
 
-                syncResponse.BulkResponses.Add(bulkResponse);
+                if (ConfigSection.Default.Index.LogBulk)
+                    syncResponse.BulkResponses.Add(bulkResponse);
+
                 syncResponse.IndexedDocuments += bulkResponse.AffectedDocuments;
                 syncResponse.Success = syncResponse.Success && bulkResponse.Success;
 
