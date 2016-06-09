@@ -219,7 +219,10 @@ namespace ElasticSearchSync
                 StartedOn = bulkStartedOn,
                 Duration = stopwatch.ElapsedMilliseconds
             };
-            LogBulk(bulkResponse);
+
+            if (ConfigSection.Default.Index.LogBulk)
+                LogBulk(bulkResponse);
+
             stopwatch.Reset();
 
             return bulkResponse;

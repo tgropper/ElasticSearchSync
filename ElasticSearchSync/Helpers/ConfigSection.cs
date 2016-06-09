@@ -38,6 +38,14 @@ namespace ElasticSearchSync.Helpers
                 get { return (string)this["name"]; }
                 set { this["name"] = value; }
             }
+
+            [DataMember]
+            [ConfigurationProperty("logBulk", IsRequired = false)]
+            public bool LogBulk
+            {
+                get { return (bool)this["logBulk"]; }
+                set { this["logBulk"] = value; }
+            }
         }
 
         [DataContract]
