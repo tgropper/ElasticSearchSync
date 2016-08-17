@@ -41,6 +41,11 @@ namespace ElasticSearchSync
         public int BulkSize { get; set; }
 
         /// <summary>
+        /// Configures pagination on Sql queries.
+        /// </summary>
+        public int? PageSize { get; set; }
+
+        /// <summary>
         /// Elasticsearch index
         /// </summary>
         public string _Index { get; set; }

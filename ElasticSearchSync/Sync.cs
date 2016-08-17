@@ -3,6 +3,7 @@ using Elasticsearch.Net;
 using ElasticSearchSync.Helpers;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Linq;
@@ -76,9 +77,60 @@ namespace ElasticSearchSync
                     //INDEX PROCESS
                     if (_config.SqlCommand != null)
                     {
-                        var data = GetSerializedObject();
-                        log.Info(String.Format("{0} objects have been serialized.", data.Count()));
-                        syncResponse = IndexProcess(data, syncResponse);
+                        var dataCount = 0;
+                        try
+                        {
+                            _config.SqlConnection.Open();
+                            if (_config.PageSize.HasValue)
+                            {
+                                var page = 0;
+                                var size = _config.PageSize;
+                                var commandText = _config.SqlCommand.CommandText;
+
+                                while (true)
+                                {
+                                    var conditionBuilder = new StringBuilder("(");
+                                    conditionBuilder
+                                        .Append("RowNumber BETWEEN ")
+                                        .Append(page * size + 1)
+                                        .Append(" AND ")
+                                        .Append(page * size + size)
+                                        .Append(")");
+
+                                    _config.SqlCommand.CommandText = AddSqlCondition(commandText, conditionBuilder.ToString());
+
+                                    var pageData = GetSerializedObject();
+
+                                    var pageDataCount = pageData.Count();
+                                    dataCount += pageDataCount;
+
+                                    log.Info(String.Format("{0} objects have been serialized from page {1}.", pageDataCount, page));
+
+                                    IndexProcess(pageData, syncResponse);
+
+                                    pageData.Clear();
+                                    pageData = null;
+                                    GC.Collect(GC.MaxGeneration);
+
+                                    if (pageDataCount < size)
+                                        break;
+
+                                    page++;
+                                }
+                            }
+                            else
+                            {
+                                var data = GetSerializedObject();
+                                dataCount = data.Count();
+                                IndexProcess(data, syncResponse);
+                            }
+
+                            log.Info(String.Format("{0} objects have been serialized.", dataCount));
+                        }
+                        finally
+                        {
+                            _config.SqlConnection.Close();
+                        }
                     }
 
                     //LOG PROCESS
@@ -288,67 +340,67 @@ namespace ElasticSearchSync
 
         private Dictionary<object, Dictionary<string, object>> GetSerializedObject()
         {
-            try
+            Dictionary<object, Dictionary<string, object>> data = null;
+            _config.SqlCommand.CommandTimeout = 0;
+
+            stopwatch.Start();
+            using (SqlDataReader rdr = _config.SqlCommand.ExecuteReader(CommandBehavior.SequentialAccess))
             {
-                _config.SqlConnection.Open();
-                Dictionary<object, Dictionary<string, object>> data = null;
-                _config.SqlCommand.CommandTimeout = 0;
+                stopwatch.Stop();
+                log.Info(String.Format("sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
+                stopwatch.Reset();
+
+                data = rdr.Serialize(_config.XmlFields);
+            }
+
+            if (!data.Any())
+                return data;
+
+            var dataIds = data.Select(x => "'" + x.Key + "'").ToArray();
+
+            foreach (var arrayConfig in _config.ArraysConfiguration)
+            {
+                arrayConfig.SqlCommand.CommandTimeout = 0;
+
+                if (_config.PageSize.HasValue)
+                    arrayConfig.SqlCommand.CommandText = AddSqlCondition(arrayConfig.SqlCommand.CommandText, String.Format("_id IN ({0})", String.Join(",", dataIds)));
 
                 stopwatch.Start();
-                using (SqlDataReader rdr = _config.SqlCommand.ExecuteReader())
+                using (SqlDataReader rdr = arrayConfig.SqlCommand.ExecuteReader(CommandBehavior.SequentialAccess))
                 {
                     stopwatch.Stop();
-                    log.Info(String.Format("sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
+                    log.Info(String.Format("array sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
                     stopwatch.Reset();
 
-                    data = rdr.Serialize(_config.XmlFields);
+                    data = rdr.SerializeArray(data, arrayConfig.AttributeName, arrayConfig.XmlFields, arrayConfig.InsertIntoArrayComparerKey);
                 }
-
-                if (!data.Any())
-                    return data;
-
-                var dataIds = data.Select(x => "'" + x.Key + "'").ToArray();
-
-                foreach (var arrayConfig in _config.ArraysConfiguration)
-                {
-                    arrayConfig.SqlCommand.CommandTimeout = 0;
-                    stopwatch.Start();
-                    using (SqlDataReader rdr = arrayConfig.SqlCommand.ExecuteReader())
-                    {
-                        stopwatch.Stop();
-                        log.Info(String.Format("array sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
-                        stopwatch.Reset();
-
-                        data = rdr.SerializeArray(data, arrayConfig.AttributeName, arrayConfig.XmlFields, arrayConfig.InsertIntoArrayComparerKey);
-                    }
-                }
-
-                foreach (var objectConfig in _config.ObjectsConfiguration)
-                {
-                    objectConfig.SqlCommand.CommandTimeout = 0;
-                    stopwatch.Start();
-                    using (SqlDataReader rdr = objectConfig.SqlCommand.ExecuteReader())
-                    {
-                        stopwatch.Stop();
-                        log.Info(String.Format("object sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
-                        stopwatch.Reset();
-
-                        data = rdr.SerializeObject(data, objectConfig.AttributeName, objectConfig.InsertIntoArrayComparerKey);
-                    }
-                }
-
-                return data;
             }
-            finally
+
+            foreach (var objectConfig in _config.ObjectsConfiguration)
             {
-                _config.SqlConnection.Close();
+                objectConfig.SqlCommand.CommandTimeout = 0;
+
+                if (_config.PageSize.HasValue)
+                    objectConfig.SqlCommand.CommandText = AddSqlCondition(objectConfig.SqlCommand.CommandText, String.Format("_id IN ({0})", String.Join(",", dataIds)));
+
+                stopwatch.Start();
+                using (SqlDataReader rdr = objectConfig.SqlCommand.ExecuteReader(CommandBehavior.SequentialAccess))
+                {
+                    stopwatch.Stop();
+                    log.Info(String.Format("object sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
+                    stopwatch.Reset();
+
+                    data = rdr.SerializeObject(data, objectConfig.AttributeName, objectConfig.InsertIntoArrayComparerKey);
+                }
             }
+
+            return data;
         }
 
         private string AddSqlCondition(string sql, string condition)
         {
             return new StringBuilder(sql).Insert(
-                sql.IndexOf("where", StringComparison.InvariantCultureIgnoreCase) + "where ".Length,
+                sql.LastIndexOf("where", StringComparison.InvariantCultureIgnoreCase) + "where ".Length,
                 new StringBuilder(condition).Append(" AND ").ToString()).ToString();
         }
     }
