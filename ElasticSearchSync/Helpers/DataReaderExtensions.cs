@@ -73,6 +73,10 @@ namespace ElasticSearchSync.Helpers
                 {
                     AddArray(@object.Value, arrayElements[@object.Key], attributeName, insertIntoArrayComparerKey);
                 }
+                else
+                {
+                    AddArray(@object.Value, new List<Dictionary<string, object>>(), attributeName, insertIntoArrayComparerKey);
+                }
             }
 
             return results;
@@ -86,7 +90,7 @@ namespace ElasticSearchSync.Helpers
         {
             var newArrayKey = GetLeafName(fieldName);
             Dictionary<string, object> newArrayContainerElement = null;
-            if (insertIntoArrayComparerKey != null)
+            if (insertIntoArrayComparerKey != null && arrayElements.Any())
             {
                 var existingArrayAttributeName = fieldName.Substring(0, fieldName.Count() - newArrayKey.Count() - 1);
                 var existingArrayContainerElement = GetLeafContainerElement(@object, existingArrayAttributeName);
