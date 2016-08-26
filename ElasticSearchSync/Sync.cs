@@ -360,13 +360,14 @@ namespace ElasticSearchSync
 
             foreach (var arrayConfig in _config.ArraysConfiguration)
             {
-                arrayConfig.SqlCommand.CommandTimeout = 0;
+                var cmd = arrayConfig.SqlCommand.Clone();
+                cmd.CommandTimeout = 0;
 
                 if (_config.PageSize.HasValue)
-                    arrayConfig.SqlCommand.CommandText = AddSqlCondition(arrayConfig.SqlCommand.CommandText, String.Format("_id IN ({0})", String.Join(",", dataIds)));
+                    cmd.CommandText = AddSqlCondition(cmd.CommandText, String.Format("_id IN ({0})", String.Join(",", dataIds)));
 
                 stopwatch.Start();
-                using (SqlDataReader rdr = arrayConfig.SqlCommand.ExecuteReader(CommandBehavior.SequentialAccess))
+                using (SqlDataReader rdr = cmd.ExecuteReader(CommandBehavior.SequentialAccess))
                 {
                     stopwatch.Stop();
                     log.Info(String.Format("array sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
@@ -378,13 +379,14 @@ namespace ElasticSearchSync
 
             foreach (var objectConfig in _config.ObjectsConfiguration)
             {
-                objectConfig.SqlCommand.CommandTimeout = 0;
+                var cmd = objectConfig.SqlCommand.Clone();
+                cmd.CommandTimeout = 0;
 
                 if (_config.PageSize.HasValue)
-                    objectConfig.SqlCommand.CommandText = AddSqlCondition(objectConfig.SqlCommand.CommandText, String.Format("_id IN ({0})", String.Join(",", dataIds)));
+                    cmd.CommandText = AddSqlCondition(cmd.CommandText, String.Format("_id IN ({0})", String.Join(",", dataIds)));
 
                 stopwatch.Start();
-                using (SqlDataReader rdr = objectConfig.SqlCommand.ExecuteReader(CommandBehavior.SequentialAccess))
+                using (SqlDataReader rdr = cmd.ExecuteReader(CommandBehavior.SequentialAccess))
                 {
                     stopwatch.Stop();
                     log.Info(String.Format("object sql execute reader duration: {0}ms", stopwatch.ElapsedMilliseconds));
