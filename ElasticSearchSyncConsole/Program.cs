@@ -68,7 +68,7 @@ namespace ElasticSearchSyncConsole
                     DeleteConfiguration = deleteCmd,
                     ElasticSearchConfiguration = esConfig,
                     BulkSize = 500,
-                    _Index = "sarasa",
+                    _Index = new Index("sarasa"),
                     _Type = "notes"
                 };
 

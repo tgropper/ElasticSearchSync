@@ -32,13 +32,14 @@ namespace ElasticSearchSync
         {
             _config = config;
             log4net.Config.XmlConfigurator.Configure();
-            log = log4net.LogManager.GetLogger(String.Format("SQLSERVER-ES Sync - {0}/{1}", config._Index, config._Type));
+            log = log4net.LogManager.GetLogger(String.Format("SQLSERVER-ES Sync - {0}/{1}", config._Index.Name, config._Type));
             stopwatch = new Stopwatch();
 
-            LogType = String.Format("{0}_{1}_{2}", LogType, _config._Index, _config._Type);
-            BulkLogType = String.Format("{0}_{1}_{2}", BulkLogType, _config._Index, _config._Type);
-            LockType = String.Format("{0}_{1}_{2}", LockType, _config._Index, _config._Type);
-            LastLogType = String.Format("{0}_{1}_{2}", LastLogType, _config._Index, _config._Type);
+            var indexNameForLogTypes = String.IsNullOrEmpty(config._Index.Alias) ? config._Index.Name : config._Index.Alias;
+            LogType = String.Format("{0}_{1}_{2}", LogType, indexNameForLogTypes, _config._Type);
+            BulkLogType = String.Format("{0}_{1}_{2}", BulkLogType, indexNameForLogTypes, _config._Type);
+            LockType = String.Format("{0}_{1}_{2}", LockType, indexNameForLogTypes, _config._Type);
+            LastLogType = String.Format("{0}_{1}_{2}", LastLogType, indexNameForLogTypes, _config._Type);
         }
 
         public SyncResponse Exec(bool force = false)
@@ -259,7 +260,7 @@ namespace ElasticSearchSync
 
             //build bulk data
             foreach (var bulkData in data)
-                partialBulkBuilder.Append(getPartialBulk(_config._Index, _config._Type, bulkData.Key, bulkData.Value));
+                partialBulkBuilder.Append(getPartialBulk(_config._Index.Name, _config._Type, bulkData.Key, bulkData.Value));
 
             var response = client.Bulk(partialBulkBuilder.ToString());
             stopwatch.Stop();

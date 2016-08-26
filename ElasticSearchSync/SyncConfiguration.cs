@@ -48,7 +48,7 @@ namespace ElasticSearchSync
         /// <summary>
         /// Elasticsearch index
         /// </summary>
-        public string _Index { get; set; }
+        public Index _Index { get; set; }
 
         /// <summary>
         /// Elasticsearch type
@@ -60,6 +60,19 @@ namespace ElasticSearchSync
             BulkSize = 1000;
             ArraysConfiguration = new List<SyncArrayConfiguration>();
             ObjectsConfiguration = new List<SyncObjectConfiguration>();
+        }
+    }
+
+    public class Index
+    {
+        public string Name { get; set; }
+
+        public string Alias { get; set; }
+
+        public Index(string name, string alias = null)
+        {
+            this.Name = name;
+            this.Alias = alias;
         }
     }
 }
