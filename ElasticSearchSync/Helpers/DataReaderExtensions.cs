@@ -90,7 +90,7 @@ namespace ElasticSearchSync.Helpers
         {
             var newArrayKey = GetLeafName(fieldName);
             Dictionary<string, object> newArrayContainerElement = null;
-            if (insertIntoArrayComparerKey != null && arrayElements.Any())
+            if (insertIntoArrayComparerKey != null)
             {
                 var existingArrayAttributeName = fieldName.Substring(0, fieldName.Count() - newArrayKey.Count() - 1);
                 var existingArrayContainerElement = GetLeafContainerElement(@object, existingArrayAttributeName);
@@ -100,6 +100,12 @@ namespace ElasticSearchSync.Helpers
                     throw new Exception("The array property, where you are trying to insert the new array, is not a valid property of the primary object. You have to serialize that array first");
 
                 var existingArray = (List<Dictionary<string, dynamic>>)existingArrayContainerElement[existingArrayKey];
+
+                if (arrayElements.Any() == false)
+                {
+                    existingArrayContainerElement[existingArrayKey] = InsertEmptyArrayIntoExistingArray(existingArray, newArrayKey);
+                    return;
+                }
 
                 var arrayElementsGroupedByArray = arrayElements
                     .GroupBy(x => x[insertIntoArrayComparerKey.NewElementComparerKey])
@@ -125,6 +131,14 @@ namespace ElasticSearchSync.Helpers
                 newArrayContainerElement = GetLeafContainerElement(@object, fieldName);
                 newArrayContainerElement[newArrayKey] = arrayElements;
             }
+        }
+
+        private static List<Dictionary<string, dynamic>> InsertEmptyArrayIntoExistingArray(List<Dictionary<string, dynamic>> existingArray, string newArrayKey)
+        {
+            foreach (var arrayElement in existingArray)
+                arrayElement[newArrayKey] = new List<Dictionary<string, object>>();
+
+            return existingArray;
         }
 
         /// <summary>
